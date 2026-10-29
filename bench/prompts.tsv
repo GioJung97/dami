@@ -1,0 +1,31 @@
+id	lang	text
+en01	en	Hey, can you send me the latest version of the slides before the meeting tomorrow?
+en02	en	Um, I think we should, uh, push the release to next Friday because the tests are still failing.
+en03	en	Let's meet at 3, no, actually 4 p.m. at the coffee shop near the office.
+en04	en	The API returns a 404 when the user ID is missing from the request header.
+en05	en	So basically what I'm trying to say is that the onboarding flow feels way too long.
+en06	en	Remind me to buy milk, eggs, and, uh, some bread on the way home.
+en07	en	I deployed the Supabase migration and updated the environment variables in Vercel.
+en08	en	Thanks for the quick reply. I'll review the pull request this afternoon and leave comments.
+en09	en	Can you, like, check whether the Claude Code hooks are running before each commit?
+en10	en	Honestly, I'm not sure that's the right approach, but let's try it and see what happens.
+ko01	ko	오늘 저녁에 뭐 먹을지 아직 못 정했어.
+ko02	ko	음, 내일 회의는 오전 10시로 옮기는 게 좋을 것 같아요.
+ko03	ko	어, 그러니까 제 말은 이 기능을 다음 주까지 끝내기는 어렵다는 거예요.
+ko04	ko	주말에 부모님 댁에 가서 같이 저녁 먹기로 했어.
+ko05	ko	3시에, 아니 4시에 강남역 앞에서 만나자.
+ko06	ko	이 문서 한번 검토해 주시고 수정할 부분 있으면 알려 주세요.
+ko07	ko	요즘 날씨가 너무 추워져서 감기 걸리기 쉬운 것 같아.
+ko08	ko	그, 이제 막 시작한 프로젝트라서 아직 정해진 게 별로 없어요.
+ko09	ko	택배가 아직 안 와서 고객센터에 전화해 봐야 할 것 같아.
+ko10	ko	혹시 시간 괜찮으시면 다음 주 화요일에 잠깐 통화 가능할까요?
+mx01	mixed	오늘 meeting에서 project timeline 얘기했어.
+mx02	mixed	이거 pull request 올렸으니까 review 좀 부탁해.
+mx03	mixed	음, Supabase migration은 다음 주에 하는 걸로 하자.
+mx04	mixed	API key를 environment variable로 옮겨야 할 것 같아요.
+mx05	mixed	내일 deadline이라서 오늘 밤에 deploy 해야 돼.
+mx06	mixed	I think 이 부분은 조금 더 생각해 봐야 할 것 같아.
+mx07	mixed	Claude Code로 refactoring 했더니 훨씬 깔끔해졌어.
+mx08	mixed	어, 그 bug는 production에서만 재현이 돼서 debugging이 어려워.
+mx09	mixed	Can you check 이거 제대로 작동하는지?
+mx10	mixed	다음 sprint planning 때 이 ticket 우선순위 다시 정하자.
