@@ -207,15 +207,17 @@ final class DictationController: ObservableObject {
 
         state = .transcribing
         hud.show(.transcribing)
-        let language: Transcriber.AppSettingsLanguage = switch settings.language {
-        case .auto: .auto
-        case .english: .english
-        case .korean: .korean
+        let second = settings.secondLanguage
+        let forced: String? = switch settings.language {
+        case .auto: nil
+        case .english: "en"
+        case .second: second?.code ?? "en"
         }
         let options = Transcriber.Options(
-            language: language,
-            keepEnglishInKorean: settings.keepEnglishInKorean,
-            vocabulary: store.vocabulary.map(\.term).filter { !Transcriber.containsHangul($0) }
+            secondLanguage: second,
+            forcedLanguage: forced,
+            keepEnglishTerms: settings.keepEnglishTerms,
+            vocabulary: store.vocabulary.map(\.term).filter { term in second?.script?.matches(term) != true }
         )
         let app = targetApp
 

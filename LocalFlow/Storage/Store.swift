@@ -23,12 +23,13 @@ struct Dictation: Codable, Identifiable, FetchableRecord, MutablePersistableReco
 
     var wordCount: Int { finalText.split(whereSeparator: \.isWhitespace).count }
 
+    /// EN, the other language's code (e.g. KO), or MIXED when a dictation in a non-Latin-script
+    /// language also has English words. Mixing can't be told apart for Latin-script languages.
     var languageLabel: String {
-        switch language {
-        case "en": "EN"
-        case "ko": finalText.range(of: "[A-Za-z]{2,}", options: .regularExpression) != nil ? "MIXED" : "KO"
-        default: language.uppercased()
-        }
+        guard language != "en" else { return "EN" }
+        let hasScript = SpokenLanguage.find(language)?.script != nil
+        if hasScript, finalText.range(of: "[A-Za-z]{2,}", options: .regularExpression) != nil { return "MIXED" }
+        return language.uppercased()
     }
 }
 

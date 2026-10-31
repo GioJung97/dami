@@ -1,28 +1,28 @@
+import CoreML
 import Foundation
 import WhisperKit
 
 /// On-device speech-to-text with WhisperKit, using the language-adaptive prompting chosen in
 /// Phase 0 (PLAN §5):
-/// 1. Detect the language (unless the user fixed it to English or Korean).
-/// 2. English → prompt with the vocabulary list. Korean (incl. mixed) → short mixed sample only.
-/// 3. If Korean was detected but the result has no Hangul, Whisper translated: re-run without a prompt.
+/// 1. Detect the language among the user's languages (English + at most one other), unless the
+///    user fixed it.
+/// 2. English → prompt with the vocabulary list. Other language (incl. mixed) → short mixed sample only.
+/// 3. If the other language was detected but the result isn't in its script, Whisper translated:
+///    re-run without a prompt. (Only possible for languages with their own script.)
 actor Transcriber {
     static let modelName = "large-v3-v20240930_turbo_632MB"
     static let modelDisplayName = "Whisper large-v3 turbo"
     static let modelSizeMB = 632
 
-    /// Short mixed sample in a dictation style. Keeps English terms in Latin script inside Korean
-    /// sentences. Keep it short: adding an English word list here made Whisper translate Korean.
-    static let mixedPrompt = "오늘 meeting에서 project timeline 얘기했고, API 관련 bug는 다음 sprint에 fix 할게요."
-
     struct Options: Sendable {
-        var language: AppSettingsLanguage
-        var keepEnglishInKorean: Bool
+        /// The language spoken next to English, or nil for English only.
+        var secondLanguage: SpokenLanguage?
+        /// Fixed language code, or nil to detect between English and `secondLanguage`.
+        var forcedLanguage: String?
+        var keepEnglishTerms: Bool
         /// English terms from the Dictionary, used as the prompt for English dictations.
         var vocabulary: [String]
     }
-
-    enum AppSettingsLanguage: Sendable { case auto, english, korean }
 
     struct Result: Sendable {
         let text: String
@@ -80,34 +80,66 @@ actor Transcriber {
     func transcribe(_ audio: [Float], options: Options) async throws -> Result {
         guard let whisper else { throw TranscriberError.notLoaded }
 
-        let forced: String? = switch options.language {
-        case .auto: nil
-        case .english: "en"
-        case .korean: "ko"
-        }
-        let detected: String
-        if let forced {
-            detected = forced
+        let language: String
+        if let forced = options.forcedLanguage {
+            language = forced
+        } else if let second = options.secondLanguage {
+            language = try await detectLanguage(whisper, audio, among: ["en", second.code])
         } else {
-            detected = try await whisper.detectLangauge(audioArray: audio).language
+            language = "en"
         }
 
+        let second = language == "en" ? nil : options.secondLanguage
         let prompt: String?
-        if detected == "en" {
-            prompt = options.vocabulary.isEmpty ? nil : options.vocabulary.joined(separator: ", ") + "."
+        if let second {
+            prompt = options.keepEnglishTerms ? second.mixedPrompt : nil
         } else {
-            prompt = options.keepEnglishInKorean ? Self.mixedPrompt : nil
+            prompt = options.vocabulary.isEmpty ? nil : options.vocabulary.joined(separator: ", ") + "."
         }
 
-        var text = try await run(whisper, audio, prompt: prompt, language: forced)
-        if detected != "en", !text.isEmpty, !Self.containsHangul(text) {
-            text = try await run(whisper, audio, prompt: nil, language: forced)
+        var text = try await run(whisper, audio, prompt: prompt, language: language)
+        if let script = second?.script, prompt != nil, !text.isEmpty, !script.matches(text) {
+            text = try await run(whisper, audio, prompt: nil, language: language)
         }
-        return Result(text: text, language: detected)
+        return Result(text: text, language: language)
+    }
+
+    /// Whisper's own detection picks from all 99 languages, so Korean is sometimes heard as Japanese.
+    /// This runs the same single decoder step but only compares the user's languages.
+    private func detectLanguage(_ whisper: WhisperKit, _ audio: [Float], among codes: [String]) async throws -> String {
+        guard let tokenizer = whisper.tokenizer else { throw TranscriberError.notLoaded }
+        let window = whisper.featureExtractor.windowSamples ?? 480_000
+        guard let samples = whisper.audioProcessor.padOrTrim(fromArray: audio, startAt: 0, toLength: window),
+              let mel = try await whisper.featureExtractor.logMelSpectrogram(fromAudio: samples),
+              let encoded = try await whisper.audioEncoder.encodeFeatures(mel) as? MLMultiArray,
+              let inputs = try whisper.textDecoder.prepareDecoderInputs(
+                  withPrompt: [tokenizer.specialTokens.startOfTranscriptToken]
+              ) as? DecodingInputs
+        else { throw TranscriberError.detectionFailed }
+
+        inputs.inputIds[0] = NSNumber(value: tokenizer.specialTokens.startOfTranscriptToken)
+        inputs.cacheLength[0] = 0
+        let output = try await whisper.textDecoder.predictLogits(TextDecoderMLMultiArrayInputType(
+            inputIds: inputs.inputIds,
+            cacheLength: inputs.cacheLength,
+            keyCache: inputs.keyCache,
+            valueCache: inputs.valueCache,
+            kvCacheUpdateMask: inputs.kvCacheUpdateMask,
+            encoderOutputEmbeds: encoded,
+            decoderKeyPaddingMask: inputs.decoderKeyPaddingMask
+        )) as? TextDecoderMLMultiArrayOutputType
+        guard let logits = output?.logits else { throw TranscriberError.detectionFailed }
+
+        let scored = codes.compactMap { code -> (String, Float)? in
+            guard let token = tokenizer.convertTokenToId("<|\(code)|>") else { return nil }
+            return (code, logits[[0, 0, NSNumber(value: token)]].floatValue)
+        }
+        guard let best = scored.max(by: { $0.1 < $1.1 }) else { throw TranscriberError.detectionFailed }
+        return best.0
     }
 
     /// Mirrors the whisperkit-cli settings used in the Phase 0 benchmark.
-    private func run(_ whisper: WhisperKit, _ audio: [Float], prompt: String?, language: String?) async throws -> String {
+    private func run(_ whisper: WhisperKit, _ audio: [Float], prompt: String?, language: String) async throws -> String {
         var options = DecodingOptions(
             task: .transcribe,
             language: language,
@@ -115,8 +147,8 @@ actor Transcriber {
             temperatureIncrementOnFallback: 0.2,
             temperatureFallbackCount: 5,
             topK: 5,
-            usePrefillPrompt: language != nil,
-            detectLanguage: language == nil,
+            usePrefillPrompt: true,
+            detectLanguage: false,
             compressionRatioThreshold: 2.4,
             logProbThreshold: -1.0,
             firstTokenLogProbThreshold: nil,
@@ -126,18 +158,18 @@ actor Transcriber {
         if let prompt, let tokenizer = whisper.tokenizer {
             options.promptTokens = tokenizer.encode(text: " " + prompt)
                 .filter { $0 < tokenizer.specialTokens.specialTokenBegin }
-            options.usePrefillPrompt = true
         }
         let results = try await whisper.transcribe(audioArray: audio, decodeOptions: options)
         return results.map(\.text).joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    static func containsHangul(_ text: String) -> Bool {
-        text.unicodeScalars.contains { (0xAC00...0xD7A3).contains($0.value) || (0x1100...0x11FF).contains($0.value) }
-    }
-
     enum TranscriberError: LocalizedError {
-        case notLoaded
-        var errorDescription: String? { "The speech model isn't loaded yet." }
+        case notLoaded, detectionFailed
+        var errorDescription: String? {
+            switch self {
+            case .notLoaded: "The speech model isn't loaded yet."
+            case .detectionFailed: "Couldn't tell which language was spoken."
+            }
+        }
     }
 }

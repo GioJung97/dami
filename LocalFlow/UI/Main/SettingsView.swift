@@ -84,25 +84,30 @@ struct SettingsView: View {
     }
 
     @ViewBuilder private var language: some View {
-        Section("Spoken language") {
-            Picker("Language", selection: $settings.language) {
-                Text("Automatic (English + Korean)").tag(AppSettings.LanguageMode.auto)
-                Text("English only").tag(AppSettings.LanguageMode.english)
-                Text("Korean only").tag(AppSettings.LanguageMode.korean)
-            }
-            .pickerStyle(.radioGroup)
-            .labelsHidden()
-            Text("Automatic detects each dictation, and mixed sentences work.")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+        Section("Your languages") {
+            SecondLanguagePicker()
         }
-        Section {
-            Toggle(isOn: $settings.keepEnglishInKorean) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Keep English words in English")
-                    Text("\"오늘 meeting에서\" instead of \"오늘 미팅에서\".")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
+        if let second = settings.secondLanguage {
+            Section("Listen for") {
+                Picker("Listen for", selection: $settings.language) {
+                    Text("Automatic (English + \(second.name))").tag(AppSettings.LanguageMode.auto)
+                    Text("English only").tag(AppSettings.LanguageMode.english)
+                    Text("\(second.name) only").tag(AppSettings.LanguageMode.second)
+                }
+                .pickerStyle(.radioGroup)
+                .labelsHidden()
+                Text("Automatic detects each dictation, and mixed sentences work.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+            Section {
+                Toggle(isOn: $settings.keepEnglishTerms) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Keep English words in English")
+                        Text("Words like \"meeting\" or \"API\" stay in English inside \(second.name) sentences.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }

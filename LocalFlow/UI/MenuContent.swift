@@ -25,18 +25,20 @@ struct MenuContent: View {
                 Divider().padding(.vertical, 4)
             }
 
-            HStack {
-                Text("Language").foregroundStyle(.secondary).font(.system(size: 12))
-                Spacer()
-                Picker("Language", selection: $settings.language) {
-                    ForEach(AppSettings.LanguageMode.allCases) { Text($0.label).tag($0) }
+            if settings.secondLanguage != nil {
+                HStack {
+                    Text("Language").foregroundStyle(.secondary).font(.system(size: 12))
+                    Spacer()
+                    Picker("Language", selection: $settings.language) {
+                        ForEach(AppSettings.LanguageMode.allCases) { Text(settings.label(for: $0)).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 160)
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(width: 160)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
 
             if !controller.recent.isEmpty {
                 Divider().padding(.vertical, 4)

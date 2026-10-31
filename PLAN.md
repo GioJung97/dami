@@ -283,6 +283,10 @@ Each phase ends with something you can use daily.
   hallucination filters, password-field / no-text-field fallback to clipboard. Still to do: `release.sh`
   + `.dmg`, install test on a second Mac. Login/account sync is on hold (§8). UI mockup:
   https://claude.ai/artifact/TbXJxonpFTdVWpHXmG7fQs
+- **Status (2026-10-31): language choice added, in testing.** English + at most one other language,
+  picked in onboarding (new step) and Settings → Language. Korean is verified; ja, zh, es, fr, de, pt,
+  vi, hi ship with untested mixed prompts, marked "experimental". Detection now compares only the
+  user's languages (pulled forward from Phase 4). Installed on a second Mac from source; `.dmg` still to do.
 
 ### Phase 3 — Cleanup (2–3 days)
 - Rules layer (fillers, repeats).
@@ -298,7 +302,7 @@ Each phase ends with something you can use daily.
 - **Done when:** "um so like let's meet at 3, no, 4" → "Let's meet at 4." in ~2 s.
 
 ### Phase 4 — Bilingual tuning (1–2 days)
-- en/ko-restricted language detection, mixed-language prompt biasing.
+- ~~en/ko-restricted language detection~~ (done 2026-10-31, generalized to English + chosen language), mixed-language prompt biasing.
 - Policy for English terms in Korean sentences.
 - Score on the mixed clips. Iterate on prompts.
 - **Done when:** mixed sentences come out the way you'd type them.
@@ -313,6 +317,10 @@ Each phase ends with something you can use daily.
 - "Command mode": select text, hold a different key, say "make this more formal" / "영어로 번역해줘".
 - Opt-in audio saving + LoRA fine-tuning of Whisper on your voice.
 - Streaming transcription while you speak (lower latency for long dictations).
+- Speech model choice (note, 2026-10-31): offer one lighter and one heavier option next to
+  `large-v3-turbo` in Settings → Models. Multilingual models only (no English-only variants like
+  `*.en`), since every user speaks English + another language. Pick candidates by benchmarking them
+  on the eval set, not by size alone.
 
 ---
 

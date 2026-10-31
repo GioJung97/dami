@@ -65,11 +65,31 @@ private struct MenuBarLabel: View {
     var body: some View {
         Image(systemName: controller.state.symbolName)
             .onAppear {
+                DispatchQueue.main.async(execute: Self.openOnRightClick)
                 if !AppSettings.shared.hasCompletedOnboarding || !Permissions.shared.allGranted {
                     openWindow(id: WindowID.onboarding)
                     NSApp.activate(ignoringOtherApps: true)
                 }
             }
+    }
+
+    /// MenuBarExtra only opens its panel on a left click. Make the status bar button send its
+    /// action on the matching right-click event too.
+    private static func openOnRightClick() {
+        let buttons = NSApp.windows
+            .filter { $0.className.contains("NSStatusBarWindow") }
+            .compactMap { $0.contentView.flatMap(statusButton) }
+        for button in buttons {
+            var mask = NSEvent.EventTypeMask(rawValue: UInt64(button.sendAction(on: [])))
+            if mask.contains(.leftMouseDown) { mask.insert(.rightMouseDown) }
+            if mask.contains(.leftMouseUp) { mask.insert(.rightMouseUp) }
+            button.sendAction(on: mask)
+        }
+    }
+
+    private static func statusButton(in view: NSView) -> NSStatusBarButton? {
+        if let button = view as? NSStatusBarButton { return button }
+        return view.subviews.lazy.compactMap(statusButton).first
     }
 }
 

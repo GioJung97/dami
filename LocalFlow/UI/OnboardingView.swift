@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// First-launch setup: welcome → permissions → model → try it → done.
+/// First-launch setup: welcome → languages → permissions → model → try it → done.
 struct OnboardingView: View {
     @ObservedObject var controller: DictationController
     @ObservedObject private var permissions = Permissions.shared
@@ -10,7 +10,7 @@ struct OnboardingView: View {
     @State private var practiceText = ""
 
     enum Step: Int, CaseIterable {
-        case welcome, permissions, model, practice, done
+        case welcome, language, permissions, model, practice, done
     }
 
     var body: some View {
@@ -18,6 +18,7 @@ struct OnboardingView: View {
             Group {
                 switch step {
                 case .welcome: welcome
+                case .language: languageStep
                 case .permissions: permissionsStep
                 case .model: model
                 case .practice: practice
@@ -63,13 +64,23 @@ struct OnboardingView: View {
                 .frame(width: 72, height: 72)
                 .background(RoundedRectangle(cornerRadius: 18).fill(Color.accentColor))
             Text("Welcome to LocalFlow").font(.system(size: 28, weight: .bold))
-            Text("Speak in English, Korean, or both. Your words appear wherever you're typing. Everything runs on this Mac, so your voice never leaves it.")
+            Text("Speak in English, another language, or both. Your words appear wherever you're typing. Everything runs on this Mac, so your voice never leaves it.")
                 .font(.system(size: 15))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 440)
         }
         .padding(.top, 20)
+    }
+
+    private var languageStep: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            title("Your languages", "LocalFlow always understands English. Add one more language you speak, if any.")
+            SecondLanguagePicker(asList: true)
+            Text("You can change this later in Settings.")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+        }
     }
 
     private var permissionsStep: some View {
@@ -142,7 +153,7 @@ struct OnboardingView: View {
                 KeycapRow(keys: settings.shortcut.keycaps, size: 15)
                 Spacer()
             }
-            Text("\"안녕하세요, LocalFlow test 중이에요.\"")
+            Text("\"\((settings.secondLanguage ?? .english).practiceSentence)\"")
                 .font(.system(size: 15))
                 .frame(maxWidth: .infinity)
                 .padding(12)

@@ -8,7 +8,6 @@ struct HistoryView: View {
     @State private var filter = "ALL"
     @State private var selection: Dictation.ID?
 
-    private static let filters = [("ALL", "All"), ("EN", "English"), ("KO", "Korean"), ("MIXED", "Mixed")]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -20,7 +19,7 @@ struct HistoryView: View {
                     .frame(width: 240)
             }
             Picker("Language", selection: $filter) {
-                ForEach(Self.filters, id: \.0) { Text($0.1).tag($0.0) }
+                ForEach(filters, id: \.0) { Text($0.1).tag($0.0) }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -56,6 +55,15 @@ struct HistoryView: View {
         }
         .padding(28)
         .onAppear { if selection == nil { selection = filtered.first?.id } }
+    }
+
+    private var filters: [(String, String)] {
+        var filters = [("ALL", "All"), ("EN", "English")]
+        if let second = settings.secondLanguage {
+            filters.append((second.label, second.name))
+            if second.script != nil { filters.append(("MIXED", "Mixed")) }
+        }
+        return filters
     }
 
     private var filtered: [Dictation] {

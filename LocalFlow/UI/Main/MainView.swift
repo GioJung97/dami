@@ -87,7 +87,7 @@ struct Card<Content: View>: View {
     }
 }
 
-/// Small colored language label: EN (blue), KO (orange), MIXED (gray).
+/// Small colored language label: EN (blue), the other language e.g. KO (orange), MIXED (gray).
 struct LanguageTag: View {
     let label: String
 
@@ -103,8 +103,8 @@ struct LanguageTag: View {
     private var color: Color {
         switch label {
         case "EN": .blue
-        case "KO": .orange
-        default: .secondary
+        case "MIXED": .secondary
+        default: .orange
         }
     }
 }
