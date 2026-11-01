@@ -1,3 +1,4 @@
+import LocalFlowCore
 import SwiftUI
 
 struct SettingsView: View {

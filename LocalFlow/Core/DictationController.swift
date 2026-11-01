@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import LocalFlowCore
 import os
 
 /// Runs dictation: shortcut → record → transcribe → replacements → paste → history.
@@ -233,8 +234,10 @@ final class DictationController: ObservableObject {
                     hud.hide()
                     return
                 }
-                let replaced = ReplacementEngine.apply(store.replacements, to: result.text)
-                let outcome = await TextInserter.insert(replaced.text)
+                let processed = TextPipeline.process(
+                    raw: result.text, mode: .light, language: result.language, rules: store.replacements.map(\.rule)
+                )
+                let outcome = await TextInserter.insert(processed.final)
                 hud.show(outcome == .pasted ? .pasted : .copiedOnly)
 
                 record(Dictation(
@@ -245,9 +248,9 @@ final class DictationController: ObservableObject {
                     audioSeconds: seconds,
                     latencySeconds: latency,
                     rawText: result.text,
-                    finalText: replaced.text,
-                    note: Self.note(for: replaced.uses)
-                ), audio: audio, uses: replaced.uses)
+                    finalText: processed.final,
+                    note: Self.note(for: processed.replacementUses)
+                ), audio: audio, uses: processed.replacementUses)
                 state = .idle
             } catch {
                 log.error("Transcription failed: \(error.localizedDescription, privacy: .public)")

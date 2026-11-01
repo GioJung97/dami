@@ -1,3 +1,4 @@
+import LocalFlowCore
 import SwiftUI
 
 /// First-launch setup: welcome → languages → permissions → model → try it → done.

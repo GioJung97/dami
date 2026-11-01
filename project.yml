@@ -6,6 +6,8 @@ options:
   createIntermediateGroups: true
 
 packages:
+  LocalFlowCore:
+    path: LocalFlowCore
   ArgmaxOSS:
     url: https://github.com/argmaxinc/argmax-oss-swift
     exactVersion: 1.1.1
@@ -26,6 +28,7 @@ targets:
     sources:
       - LocalFlow
     dependencies:
+      - package: LocalFlowCore
       - package: ArgmaxOSS
         product: WhisperKit
       - package: GRDB

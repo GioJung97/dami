@@ -2,31 +2,31 @@ import Foundation
 
 /// A language the user can speak next to English. Everyone speaks English; at most one other
 /// language is picked in onboarding or Settings (PLAN §5).
-struct SpokenLanguage: Identifiable, Hashable, Sendable {
+public struct SpokenLanguage: Identifiable, Hashable, Sendable {
     /// Whisper language code, e.g. "ko".
-    let code: String
+    public let code: String
     /// English name, e.g. "Korean".
-    let name: String
+    public let name: String
     /// Name in the language itself, e.g. "한국어".
-    let nativeName: String
+    public let nativeName: String
     /// Short mixed sample in a dictation style, used as the Whisper prompt so English terms stay in
     /// Latin script. Keep it short: adding an English word list made Whisper translate (Phase 0).
-    let mixedPrompt: String
+    public let mixedPrompt: String
     /// Sentence to read aloud in onboarding.
-    let practiceSentence: String
+    public let practiceSentence: String
     /// The language's own script, if it isn't Latin. Lets us notice when Whisper translated to
     /// English instead of transcribing, and tell mixed dictations from English ones.
-    let script: Script?
+    public let script: Script?
     /// Tested on real recordings. The others have prompts that haven't been benchmarked yet.
-    let verified: Bool
+    public let verified: Bool
 
-    var id: String { code }
-    var label: String { code.uppercased() }
+    public var id: String { code }
+    public var label: String { code.uppercased() }
 
-    enum Script: Sendable {
+    public enum Script: Sendable {
         case hangul, japanese, han, devanagari
 
-        func matches(_ text: String) -> Bool {
+        public func matches(_ text: String) -> Bool {
             text.unicodeScalars.contains { scalar in
                 ranges.contains { $0.contains(scalar.value) }
             }
@@ -42,14 +42,14 @@ struct SpokenLanguage: Identifiable, Hashable, Sendable {
         }
     }
 
-    static let english = SpokenLanguage(
+    public static let english = SpokenLanguage(
         code: "en", name: "English", nativeName: "English",
         mixedPrompt: "", practiceSentence: "Hi, I'm trying out LocalFlow for the first time.",
         script: nil, verified: true
     )
 
     /// Second languages offered in the picker, verified first.
-    static let all: [SpokenLanguage] = [
+    public static let all: [SpokenLanguage] = [
         SpokenLanguage(
             code: "ko", name: "Korean", nativeName: "한국어",
             mixedPrompt: "오늘 meeting에서 project timeline 얘기했고, API 관련 bug는 다음 sprint에 fix 할게요.",
@@ -106,7 +106,7 @@ struct SpokenLanguage: Identifiable, Hashable, Sendable {
         ),
     ]
 
-    static func find(_ code: String?) -> SpokenLanguage? {
+    public static func find(_ code: String?) -> SpokenLanguage? {
         all.first { $0.code == code }
     }
 }

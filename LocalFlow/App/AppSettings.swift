@@ -1,4 +1,5 @@
 import Foundation
+import LocalFlowCore
 import ServiceManagement
 
 /// User preferences, persisted in UserDefaults.

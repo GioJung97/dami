@@ -1,15 +1,29 @@
 import Foundation
 
+/// "When Whisper writes `find`, write `replace` instead."
+public struct ReplacementRule: Equatable, Sendable {
+    /// Database id, used to count uses. Nil for a rule that isn't stored.
+    public var id: Int64?
+    public var find: String
+    public var replace: String
+
+    public init(id: Int64? = nil, find: String, replace: String) {
+        self.id = id
+        self.find = find
+        self.replace = replace
+    }
+}
+
 /// Applies the Dictionary's replacement rules to a transcript.
 /// Latin-script rules match whole words, case-insensitively. Hangul rules match exactly.
-enum ReplacementEngine {
-    struct Outcome {
-        var text: String
+public enum ReplacementEngine {
+    public struct Outcome: Equatable, Sendable {
+        public var text: String
         /// Replacement id → how many times it fired.
-        var uses: [Int64: Int]
+        public var uses: [Int64: Int]
     }
 
-    static func apply(_ rules: [Replacement], to text: String) -> Outcome {
+    public static func apply(_ rules: [ReplacementRule], to text: String) -> Outcome {
         var result = text
         var uses: [Int64: Int] = [:]
         // Longest first, so "Cloud Code" wins over a rule for "Cloud".

@@ -1,5 +1,6 @@
 import Foundation
 import GRDB
+import LocalFlowCore
 
 /// One finished dictation.
 struct Dictation: Codable, Identifiable, FetchableRecord, MutablePersistableRecord, Equatable {
@@ -53,6 +54,8 @@ struct Replacement: Codable, Identifiable, FetchableRecord, MutablePersistableRe
 
     static let databaseTableName = "replacement"
     mutating func didInsert(_ inserted: InsertionSuccess) { id = inserted.rowID }
+
+    var rule: ReplacementRule { ReplacementRule(id: id, find: find, replace: replace) }
 }
 
 /// SQLite storage for history and the personal dictionary.

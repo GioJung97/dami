@@ -1,5 +1,6 @@
 import CoreML
 import Foundation
+import LocalFlowCore
 import WhisperKit
 
 /// On-device speech-to-text with WhisperKit, using the language-adaptive prompting chosen in
