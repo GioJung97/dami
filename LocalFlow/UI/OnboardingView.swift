@@ -74,13 +74,8 @@ struct OnboardingView: View {
     }
 
     private var languageStep: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            title("Your languages", "LocalFlow always understands English. Add one more language you speak, if any.")
-            SecondLanguagePicker(asList: true)
-            Text("You can change this later in Settings.")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-        }
+        LanguageSentencePicker()
+            .padding(.top, 36)
     }
 
     private var permissionsStep: some View {
