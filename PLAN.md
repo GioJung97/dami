@@ -300,6 +300,9 @@ Each phase ends with something you can use daily.
 - Model lifecycle from §3.1: preload on key down, unload after idle.
 - Feed focused-field context (app name, text before the cursor) into the prompt.
 - **Done when:** "um so like let's meet at 3, no, 4" → "Let's meet at 4." in ~2 s.
+- **Status (2026-11-01): re-scoped, not started.** Split by version. v0.2 = reliability + conservative rules +
+  Raw/Light, no LLM (`docs/plans/v0.2.md`). v0.3 = edit capture first, then LLM if measurements justify it. Where
+  this phase's details disagree with that plan, the plan wins; `PLAN.md` gets re-aligned in its last milestone.
 
 ### Phase 4 — Bilingual tuning (1–2 days)
 - ~~en/ko-restricted language detection~~ (done 2026-10-31, generalized to English + chosen language), mixed-language prompt biasing.
