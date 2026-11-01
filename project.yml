@@ -16,7 +16,7 @@ packages:
 settings:
   base:
     SWIFT_VERSION: "5.10"
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "0.2.0"
     CURRENT_PROJECT_VERSION: "1"
 
 targets:
@@ -34,6 +34,8 @@ targets:
       path: LocalFlow/Info.plist
       properties:
         CFBundleDisplayName: LocalFlow
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSUIElement: true
         LSApplicationCategoryType: public.app-category.productivity
         NSMicrophoneUsageDescription: LocalFlow records your voice while you hold the dictation keys and transcribes it on this Mac. Audio never leaves your computer.

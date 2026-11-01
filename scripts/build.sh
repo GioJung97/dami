@@ -5,12 +5,12 @@
 # Same certificate + same install path every time = macOS keeps the Microphone, Accessibility
 # and Input Monitoring permissions across rebuilds (PLAN §8).
 #
-# Usage: scripts/build.sh            # Debug build, install, relaunch
-#        scripts/build.sh Release
+# Usage: scripts/build.sh            # Release build, install, relaunch
+#        scripts/build.sh Debug      # for debugging; latency numbers aren't representative
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-CONFIG="${1:-Debug}"
+CONFIG="${1:-Release}"
 APP_DEST="/Applications/LocalFlow.app"
 
 # Team ID = the "OU" field of the Apple Development certificate in your keychain.

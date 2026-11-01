@@ -10,8 +10,10 @@ speak English / Korean / mixed, cleaned text is pasted at the cursor. Native Swi
 
 ## Build
 
-- `scripts/build.sh` (or `scripts/build.sh Release`): runs xcodegen from `project.yml`, builds, signs with
-  the Apple Development certificate, installs to `/Applications/LocalFlow.app`, relaunches.
+- `scripts/build.sh` (Release by default; `scripts/build.sh Debug` for debugging): runs xcodegen from
+  `project.yml`, builds, signs with the Apple Development certificate, installs to
+  `/Applications/LocalFlow.app`, relaunches.
+- Version: `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`.
 - Edit `project.yml`, never the generated `LocalFlow.xcodeproj/` (git-ignored).
 - Same certificate + same install path keeps macOS permissions across rebuilds.
 
