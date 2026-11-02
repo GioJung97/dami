@@ -216,6 +216,17 @@ Why not one prompt for everything: the Korean sample turned English-only openers
 10 English, 10 Korean, 10 mixed, including fillers and self-corrections. Every model and prompt change
 gets scored against these (WER for English, CER for Korean) so we know if things actually improve.
 
+**Limits of this set (noted 2026-11-02):** 30 clips is too small for reliable comparisons. Ten clips per language
+means one wrong word visibly moves the score. All clips are one speaker (the owner), one Mac microphone and a quiet
+room, so results are biased toward that voice and don't show how other speakers, accents, mics or noise behave.
+Before relying on it for v0.3 decisions (LLM, speech model choice), collect more data:
+- More clips from the owner across mics (built-in, AirPods/Bluetooth), rooms, speaking speed and length.
+- Other speakers with consent, especially for an open-source release.
+- Public datasets for each language (e.g. Common Voice, FLEURS; Korean: Zeroth, KsponSpeech), checking licences.
+  These have little natural code-switching, so mixed English/Korean clips still need recording.
+- Keep all audio out of git (`bench/clips/` is git-ignored). Voice is personal data, and git history keeps deleted
+  files. Move clips between Macs by AirDrop/USB or a private drive.
+
 ---
 
 ## 6. Project layout
@@ -386,6 +397,7 @@ and (if you have a paid account) notarizes it. You build on this Mac, then insta
 | Clipboard restore races with slow apps | Restore after ~250 ms delay; configurable; AX insertion fallback |
 | LLM rewrites too much or "answers" the text | Strict prompt + length/language guardrails + timeout fallback |
 | Mixed-language accuracy lower than Wispr's cloud models | Measure on eval set; dictionary + prompt biasing; fine-tuning later |
+| Eval set too small and one-speaker (30 clips, owner only), so decisions overfit one voice | Grow the set before v0.3 decisions: more conditions, other speakers, public datasets (§5) |
 | Permissions reset after rebuilds/updates | Stable signing identity from day one |
 | Too slow on a smaller Mac (8 GB) | Hardware-based model auto-pick + "Test my Mac" latency check |
 | First run is slow (model compile/download) | Download + warm-up during onboarding, with a progress bar |
