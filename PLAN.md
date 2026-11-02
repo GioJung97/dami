@@ -31,35 +31,30 @@ One native macOS menu bar app written in Swift / SwiftUI.
 ```
  ┌──────────────────────────── LocalFlow.app (menu bar, no Dock icon) ────────────────────────────┐
  │                                                                                                 │
- │  HotkeyMonitor ──► DictationController (state machine) ◄── RecordingHUD (small floating pill)   │
- │   (CGEventTap)          │                                                                       │
- │                         ├─► AudioRecorder        AVAudioEngine → 16 kHz mono Float32, in memory │
- │                         ├─► FocusedFieldReader   Accessibility: app name, text around cursor    │
- │                         ├─► Transcriber          WhisperKit (large-v3-turbo), on-device         │
- │                         ├─► CleanupPipeline      rules  →  local LLM (optional)  →  guardrails  │
- │                         ├─► TextInserter         clipboard + ⌘V, restore clipboard              │
- │                         └─► HistoryStore         SQLite: every dictation, raw + final           │
+ │  HotkeyMonitor ──► DictationController (shortcut + current recording) ◄── HUDController         │
+ │   (own thread)          │                                                                       │
+ │                         ├─► AudioRecorder        new AVAudioEngine per capture, serial queue    │
+ │                         └─► DictationProcessor   one job at a time, in order                    │
+ │                               ├─► Transcriber    WhisperKit (large-v3-turbo), on-device         │
+ │                               ├─► TextPipeline   Replacements → rules (Light) or nothing (Raw)  │
+ │                               ├─► TextInserter   clipboard + ⌘V, restore clipboard              │
+ │                               └─► Store          SQLite: every dictation, raw + final           │
  │                                                                                                 │
- │  Personalization: Dictionary, Replacements, EditLearner (learns from your corrections)          │
+ │  LocalFlowCore (package): pure logic with tests, no AppKit, WhisperKit or GRDB                  │
  └─────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Flow of one dictation**
-1. Key down → start recording, show the HUD, grab focused-field context (in parallel).
-2. Key up → stop recording.
-3. Trim silence (VAD). If there's no speech, cancel quietly.
-4. Transcribe with Whisper, biased with your vocabulary list.
-5. Clean up: rules first, then the LLM (if enabled), then sanity checks.
-6. Apply replacement rules ("클로드 코드" → "Claude Code").
-7. Paste into the focused app.
-8. Save to history. A few seconds later, re-read the field to learn from any edits you made.
+**Flow of one dictation (v0.2)**
+1. Key down → start recording and show the HUD. Pressing again during processing starts a new recording.
+2. Key up → record about 200 ms more, then stop. Too short or silent: nothing is transcribed.
+3. Queue the job with its own audio and options. The next recording doesn't wait for it.
+4. Detect the language among the user's languages, then transcribe with the matching prompt.
+5. Drop hallucinations and prompt echoes. Run `TextPipeline`.
+6. Paste when no recording is active, with a leading space if needed. Results keep their order.
+7. Save to history.
 
-**State machine** (`DictationController`)
-`idle → recording → transcribing → cleaning → inserting → idle`
-- `Esc` while recording → cancel, discard audio.
-- Recording shorter than ~0.3 s → treat as accidental tap, ignore.
-- Any stage fails → fall back to the best text we have (raw transcript), never lose speech.
-  Last result always stays available under "Paste last transcript" in the menu.
+Failure keeps the audio in memory for a retry. Esc cancels the recording, or otherwise everything pending. v0.3 adds edit
+capture, and an LLM stage if measurements justify it (`docs/plans/v0.2.md` §7).
 
 ---
 
@@ -93,8 +88,7 @@ The app is used all day, so most of the time it should hold only what one dictat
 - **Preload on key down:** the LLM starts loading while you speak, so most of its load time is hidden
   behind the recording. If it's still loading when transcription finishes, wait up to the LLM timeout,
   then fall back to rules-only text. The dictation is never blocked on a cold load.
-- **Skip the load entirely** when the gate (§4.3) would skip the LLM anyway. A short or clean English
-  dictation never touches it.
+- The gate (§4.3) can't skip this load: at key down there's no transcript to judge yet. To be revisited with the LLM in v0.3.
 - **Expected daily footprint:** ~0.5–1 GB at rest, ~2–4 GB peak while the LLM is warm.
 - Measure real numbers in Phase 2/3 (Activity Monitor + a debug memory readout in the menu).
 
@@ -116,8 +110,9 @@ Open-source models **do not learn automatically** from use. Their weights are fi
 learning around the model instead. In order of payoff:
 
 1. **Personal vocabulary → Whisper prompt.** Whisper accepts a short "prompt" of text that biases
-   spelling. We feed it your names, jargon, product names ("Supabase", "Claude Code", "김지수").
-   This is the single biggest accuracy win. Limit: ~200 tokens, so we keep the most-used terms.
+   spelling. We feed it your names, jargon and product names ("Supabase", "Claude Code"), for English
+   dictations only. This is the single biggest accuracy win. Limit: WhisperKit keeps the last 111 prompt
+   tokens (`maxTokenContext` 224 / 2 − 1), so the oldest terms are dropped silently for now.
 2. **Replacement rules.** Deterministic fixes for things Whisper always gets wrong
    ("cloud code" → "Claude Code"). Applied after cleanup.
 3. **Learn from your edits (automatic).** After pasting, LocalFlow re-reads the text field ~10 s later.
@@ -227,24 +222,24 @@ gets scored against these (WER for English, CER for Korean) so we know if things
 
 ```
 localflow/
-├── PLAN.md
-├── LocalFlow.xcodeproj
+├── PLAN.md, README.md, LICENSE, CLAUDE.md
+├── project.yml             source of the generated LocalFlow.xcodeproj (git-ignored)
 ├── LocalFlow/
-│   ├── App/            LocalFlowApp.swift, AppState.swift, PermissionsChecker.swift
-│   ├── Core/           DictationController.swift, HotkeyMonitor.swift, AudioRecorder.swift
-│   ├── Transcription/  Transcriber.swift (protocol), WhisperKitTranscriber.swift, HallucinationFilter.swift
-│   ├── Cleanup/        CleanupPipeline.swift, FillerRules.swift, LLMCleaner.swift, Guardrails.swift
-│   ├── Insertion/      TextInserter.swift, FocusedFieldReader.swift, SecureInputCheck.swift
-│   ├── Personalization/ Dictionary.swift, Replacements.swift, EditLearner.swift
-│   ├── Storage/        HistoryStore.swift (GRDB)
-│   └── UI/             RecordingHUD.swift, SettingsView.swift, HistoryView.swift, OnboardingView.swift
-├── bench/              eval clips (git-ignored), scoring script, results.md
-├── scripts/            release.sh (build → sign → .dmg → notarize)
-└── rea/                (reference tool, not part of the app)
+│   ├── App/                LocalFlowApp, AppSettings, Permissions
+│   ├── Core/               DictationController, DictationProcessor, HotkeyMonitor, AudioRecorder, InputDevices, Shortcut
+│   ├── Transcription/      Transcriber (WhisperKit)
+│   ├── Insertion/          TextInserter, FocusedField
+│   ├── Storage/            Store (GRDB)
+│   └── UI/                 HUD, MenuContent, OnboardingView, Main/ (Home, History, Dictionary, Settings)
+├── LocalFlowCore/          package: TextPipeline, CleanupRules, ReplacementEngine, HallucinationFilter, PromptLeak,
+│                           SpokenLanguage, HotkeyMachine, DictationQueue, InsertionSpacing, ModelFiles, CleanupEval
+│                           localflow-eval (executable), tests
+├── bench/                  eval clips (git-ignored), scoring scripts, results.md, cleanup_cases.tsv
+├── docs/                   plans/, sessions/
+└── scripts/                build.sh
 ```
 
-`Transcriber` and `LLMCleaner` are protocols, so models can be swapped (WhisperKit ↔ whisper.cpp,
-Qwen ↔ Gemma) without touching the rest.
+Models are direct calls for now, not behind protocols. Add a seam when a second implementation arrives.
 
 ---
 
@@ -287,6 +282,10 @@ Each phase ends with something you can use daily.
   picked in onboarding (new step) and Settings → Language. Korean is verified; ja, zh, es, fr, de, pt,
   vi, hi ship with untested mixed prompts, marked "experimental". Detection now compares only the
   user's languages (pulled forward from Phase 4). Installed on a second Mac from source; `.dmg` still to do.
+- **Status (2026-11-02): v0.2 implemented on branch `v0.2`, milestones M0–M7 approved by the owner.** Queue, audio
+  reliability, microphone choice, states and retry, spacing, schema v2, retention. See `docs/plans/v0.2.md` and
+  `docs/sessions/2026-11-02-v0.2-implementation.md`. `.dmg` moved to the later list. Done conditions still open: a week
+  of daily use, and the items marked unverified in the session note.
 
 ### Phase 3 — Cleanup (2–3 days)
 - Rules layer (fillers, repeats).
@@ -303,6 +302,8 @@ Each phase ends with something you can use daily.
 - **Status (2026-11-01): re-scoped, not started.** Split by version. v0.2 = reliability + conservative rules +
   Raw/Light, no LLM (`docs/plans/v0.2.md`). v0.3 = edit capture first, then LLM if measurements justify it. Where
   this phase's details disagree with that plan, the plan wins; `PLAN.md` gets re-aligned in its last milestone.
+- **Status (2026-11-02): rules layer done in v0.2.** Raw and Light modes, English and Korean rules, eval set in
+  `bench/cleanup_cases.tsv`. No LLM yet, so "um so like let's meet at 3, no, 4" isn't fully fixed; numbers are.
 
 ### Phase 4 — Bilingual tuning (1–2 days)
 - ~~en/ko-restricted language detection~~ (done 2026-10-31, generalized to English + chosen language), mixed-language prompt biasing.
@@ -338,8 +339,9 @@ you'd install any other app. You don't need Xcode or the source code on those Ma
   `~/Library/Application Support/LocalFlow/Models` → warm-up. Done once per Mac.
 - Optional "offline installer": a model folder you can copy from another Mac (or a USB stick)
   instead of downloading.
+  It must include both `models/argmaxinc/whisperkit-coreml/` and `models/openai/whisper-large-v3/` (the tokenizer).
 
-**Adapts to the hardware it's on** (detected at first launch, changeable in Settings)
+**Adapts to the hardware it's on** (planned, not built: every Mac gets large-v3-turbo 632 MB today)
 
 | Mac | Speech model | Cleanup | Expected feel |
 |---|---|---|---|

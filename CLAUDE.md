@@ -1,9 +1,10 @@
 # LocalFlow
 
 Personal, fully offline Wispr Flow replacement for macOS (Apple Silicon, macOS 14+): hold a key,
-speak English / Korean / mixed, cleaned text is pasted at the cursor. Native Swift + SwiftUI menu bar app.
+speak English plus one other language (Korean is the tested one) or both mixed, cleaned text is pasted at the cursor. Native Swift + SwiftUI menu bar app.
 
-- **Plan and status:** `PLAN.md` is the source of truth. Each phase in §7 has a dated **Status** line.
+- **Plan and status:** `PLAN.md` is the source of truth. Each phase in §7 has a dated **Status** line. A version's plan
+  lives in `docs/plans/` (`docs/plans/v0.2.md`) and takes priority over `PLAN.md` where they differ.
 - **Past session notes:** `docs/sessions/` — read these first when continuing on a new machine.
 - **Benchmarks:** `bench/` (Python scripts; `bench/results.md` holds the scores). Voice clips in
   `bench/clips/` are git-ignored and personal.
@@ -14,14 +15,16 @@ speak English / Korean / mixed, cleaned text is pasted at the cursor. Native Swi
   `project.yml`, builds, signs with the Apple Development certificate, installs to
   `/Applications/LocalFlow.app`, relaunches.
 - Version: `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`.
+- Test: `swift test --package-path LocalFlowCore`. Pure logic goes in that package, with tests.
+- Cleanup eval: `swift run --package-path LocalFlowCore localflow-eval` from the repo root writes `bench/cleanup_results.md`.
 - Edit `project.yml`, never the generated `LocalFlow.xcodeproj/` (git-ignored).
 - Same certificate + same install path keeps macOS permissions across rebuilds.
 
 ## Key decisions (details in PLAN.md)
 
 - Speech: WhisperKit `large-v3-turbo` 632 MB on the Neural Engine, language-adaptive prompting (§5).
-- Cleanup: rules first; LLM (Qwen3-1.7B 4-bit via MLX Swift to start) only when the gate says so;
-  LLM preloads on hotkey down and unloads after idle (§3.1, §4.3).
+- Cleanup: conservative rules only in v0.2 (Raw and Light modes). An LLM (Qwen3-1.7B 4-bit via MLX Swift to start) is
+  for v0.3, if measurements justify it.
 - English words inside Korean sentences stay in English.
 - No network except one-time model downloads.
 

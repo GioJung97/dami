@@ -3,6 +3,7 @@ import ApplicationServices
 import Carbon.HIToolbox
 import CoreGraphics
 import LocalFlowCore
+import os
 
 /// Types text into whatever app is focused: put it on the clipboard, send ⌘V, then put the
 /// user's previous clipboard back. Needs the Accessibility permission to post key events.
@@ -157,17 +158,10 @@ enum TextInserter {
 
 /// Reads the focused UI element through Accessibility.
 enum FocusedField {
-    private static let textRoles: Set<String> = [
-        kAXTextFieldRole, kAXTextAreaRole, kAXComboBoxRole, "AXSearchField", "AXWebArea",
-    ]
+    private static let log = Logger(subsystem: "com.localflow.app", category: "insertion")
 
-    enum Kind {
-        case text, secure, none
-    }
-
-    /// `.none` only when we're sure there's nowhere to type. If Accessibility can't tell
-    /// (many Electron and custom-drawn apps), assume text and paste.
-    static func current() -> Kind {
+    /// What kind of place the focused element is. `FocusClassifier` decides.
+    static func current() -> FocusClassifier.Kind {
         let system = AXUIElementCreateSystemWide()
         AXUIElementSetMessagingTimeout(system, 0.25)
         var focused: CFTypeRef?
@@ -176,24 +170,26 @@ enum FocusedField {
         guard error == .success, let focused else { return .text }
         let element = focused as! AXUIElement
 
+        func hasValue(_ attribute: String) -> Bool {
+            var value: CFTypeRef?
+            return AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success && value != nil
+        }
         var role: CFTypeRef?
         AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role)
-        if let role = role as? String {
-            if role == "AXSecureTextField" || (role == kAXTextFieldRole && subrole(of: element) == kAXSecureTextFieldSubrole) {
-                return .secure
-            }
-            if textRoles.contains(role) { return .text }
-        }
         var settable = DarwinBoolean(false)
-        if AXUIElementIsAttributeSettable(element, kAXValueAttribute as CFString, &settable) == .success, settable.boolValue {
-            return .text
-        }
-        var range: CFTypeRef?
-        if AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &range) == .success {
-            return .text
-        }
-        // A known, non-text element (a button, a list) has focus.
-        return role == nil ? .text : .none
+        AXUIElementIsAttributeSettable(element, kAXValueAttribute as CFString, &settable)
+        let description = FocusClassifier.Element(
+            role: role as? String,
+            subrole: subrole(of: element),
+            isValueSettable: settable.boolValue,
+            hasSelectedRange: hasValue(kAXSelectedTextRangeAttribute),
+            hasEditableAncestor: hasValue("AXEditableAncestor"),
+            isWebContent: hasValue("AXSelectedTextMarkerRange")
+        )
+        let kind = FocusClassifier.classify(description)
+        // For reports of a check with nothing pasted (docs/known-issues.md). Never any text.
+        log.debug("app=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?", privacy: .public) role=\(description.role ?? "nil", privacy: .public) subrole=\(description.subrole ?? "nil", privacy: .public) editable=\(description.hasEditableAncestor, privacy: .public) web=\(description.isWebContent, privacy: .public) settable=\(description.isValueSettable, privacy: .public) range=\(description.hasSelectedRange, privacy: .public) -> \(String(describing: kind), privacy: .public)")
+        return kind
     }
 
     enum Caret {
