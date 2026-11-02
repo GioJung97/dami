@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var controller: DictationController
     @ObservedObject private var settings = AppSettings.shared
+    @ObservedObject private var navigation = Navigation.shared
     @State private var tab = Tab.shortcut
 
     enum Tab: String, CaseIterable, Identifiable {
@@ -50,6 +51,14 @@ struct SettingsView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear(perform: showRequestedTab)
+        .onChange(of: navigation.requestedSettingsTab) { showRequestedTab() }
+    }
+
+    private func showRequestedTab() {
+        guard let requested = navigation.requestedSettingsTab.flatMap(Tab.init(rawValue:)) else { return }
+        tab = requested
+        navigation.requestedSettingsTab = nil
     }
 
     @ViewBuilder private var general: some View {
@@ -239,6 +248,13 @@ private struct ModelsSection: View {
             LabeledContent(Transcriber.modelDisplayName) {
                 Text(modelStatus).foregroundStyle(controller.isModelReady ? .green : .secondary)
             }
+            if case .failed(let problem) = controller.modelStatus {
+                HStack {
+                    Text(problem.message).foregroundStyle(.orange)
+                    Spacer()
+                    Button(problem.actionTitle) { controller.retryModel() }
+                }
+            }
             LabeledContent("Size", value: "\(Transcriber.modelSizeMB) MB")
             LabeledContent("LocalFlow memory in use", value: MemoryInfo.footprintText)
             LabeledContent("Typical speed", value: typicalSpeed)
@@ -255,10 +271,12 @@ private struct ModelsSection: View {
     }
 
     private var modelStatus: String {
-        if case .loadingModel(let progress) = controller.state {
-            return progress < 1 ? "Downloading \(Int(progress * 100))%" : "Loading…"
+        switch controller.modelStatus {
+        case .downloading(let progress): "Downloading \(Int(progress * 100))%"
+        case .loading: "Loading…"
+        case .ready: "Installed"
+        case .failed: "Not available"
         }
-        return "Installed"
     }
 
     private var typicalSpeed: String {

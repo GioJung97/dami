@@ -54,6 +54,16 @@ final class Navigation: ObservableObject {
     }
 
     @Published var section: Section = .home
+    /// Settings tab to show next, by name.
+    @Published var requestedSettingsTab: String?
+    /// Bumped to open the main window from code that can't reach SwiftUI's `openWindow`.
+    @Published private(set) var windowRequests = 0
+
+    func openSettings(tab: String) {
+        section = .settings
+        requestedSettingsTab = tab
+        windowRequests += 1
+    }
 }
 
 /// The menu bar icon. Also opens onboarding on first launch, since it's the one view that
@@ -64,6 +74,10 @@ private struct MenuBarLabel: View {
 
     var body: some View {
         Image(systemName: controller.state.symbolName)
+            .onReceive(Navigation.shared.$windowRequests.dropFirst()) { _ in
+                openWindow(id: WindowID.main)
+                NSApp.activate(ignoringOtherApps: true)
+            }
             .onAppear {
                 DispatchQueue.main.async(execute: Self.openOnRightClick)
                 if !AppSettings.shared.hasCompletedOnboarding || !Permissions.shared.allGranted {

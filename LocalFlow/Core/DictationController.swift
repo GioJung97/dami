@@ -35,7 +35,18 @@ final class DictationController: ObservableObject {
     static let limitWarningSeconds: TimeInterval = 540
     static let limitSeconds: TimeInterval = 600
 
+    /// Whether the speech model can be used, apart from anything a single dictation does.
+    enum ModelStatus: Equatable {
+        case downloading(Double)
+        case loading
+        case ready
+        case failed(ModelProblem)
+    }
+
     @Published private(set) var state: State = .loadingModel(progress: 0)
+    @Published private(set) var modelStatus: ModelStatus = .loading
+    /// Dictations that can be tried again, oldest first.
+    @Published private(set) var failedDictations: [DictationProcessor.FailedDictation] = []
     @Published private(set) var hotkeyActive = false
     /// Recent results kept in memory, so "paste again" works even when history is off.
     @Published private(set) var recent: [Dictation] = []
@@ -55,8 +66,10 @@ final class DictationController: ObservableObject {
     private var lastTapAt: Date?
     private var handsFree = false
     private var isRecording = false
-    private var isModelLoaded = false
     private var failureMessage: String?
+    /// Silent recordings in a row. A second one suggests the wrong microphone.
+    private var silentRecordings = 0
+    private var microphoneName: String?
     /// Recordings stopped but not yet handed over: the tail is still running.
     private var stoppingRecordings: Set<Int> = []
     private var targetApp: NSRunningApplication?
@@ -76,12 +89,7 @@ final class DictationController: ObservableObject {
         }
     }
 
-    var isModelReady: Bool {
-        switch state {
-        case .loadingModel: false
-        default: true
-        }
-    }
+    var isModelReady: Bool { modelStatus == .ready }
 
     init() {
         processor = DictationProcessor(transcriber: transcriber)
@@ -91,6 +99,8 @@ final class DictationController: ObservableObject {
             recent = Array(([saved] + recent).prefix(3))
         }
         processor.onChange = { [weak self] in self?.refreshState() }
+        processor.onSlow = { [weak self] in self?.showWork() }
+        hud.restingPhase = { [weak self] in self?.restingPhase ?? .hidden }
 
         hotkey.shortcut = settings.shortcut
         hotkey.onPress = { [weak self] in self?.shortcutPressed() }
@@ -118,21 +128,48 @@ final class DictationController: ObservableObject {
         recent = Array(store.dictations.prefix(3))
         startHotkeyWhenPermitted()
 
+        loadModel()
+    }
+
+    /// Tries again after the model failed: another download, or replacing bad files.
+    func retryModel() {
+        guard case .failed(let problem) = modelStatus else { return }
+        loadModel(deletingFirst: problem.needsRedownload)
+    }
+
+    func retry(_ dictation: DictationProcessor.FailedDictation) {
+        processor.retry(dictation.id)
+    }
+
+    func dismiss(_ dictation: DictationProcessor.FailedDictation) {
+        processor.dismiss(dictation.id)
+    }
+
+    private func loadModel(deletingFirst: Bool = false) {
+        setModelStatus(Transcriber.isModelDownloaded && !deletingFirst ? .loading : .downloading(0))
         Task {
             do {
+                if deletingFirst { await transcriber.deleteModel() }
                 try await transcriber.load { progress in
                     Task { @MainActor [weak self] in
-                        if case .loadingModel = self?.state { self?.state = .loadingModel(progress: progress) }
+                        guard let self, case .downloading = modelStatus else { return }
+                        setModelStatus(progress < 1 ? .downloading(progress) : .loading)
                     }
                 }
-                isModelLoaded = true
-                refreshState()
+                setModelStatus(.ready)
                 log.info("Model loaded")
             } catch {
-                state = .failed(error.localizedDescription)
-                log.error("Model load failed: \(error.localizedDescription, privacy: .public)")
+                setModelStatus(.failed(error as? ModelProblem ?? .loadFailed))
+                log.error("Model unavailable: \(error.localizedDescription, privacy: .public)")
             }
+            // Dictations made while it loaded are moving now, or just failed.
+            if !isRecording, isWorking { showWork() }
         }
+    }
+
+    private func setModelStatus(_ status: ModelStatus) {
+        modelStatus = status
+        refreshState()
     }
 
     /// Settings' shortcut recorder needs the real shortcut to stay quiet while it listens.
@@ -144,8 +181,8 @@ final class DictationController: ObservableObject {
         Task {
             // Give the menu or window time to close so focus returns to the previous app.
             try? await Task.sleep(for: .milliseconds(150))
-            if await TextInserter.insert(dictation.finalText) == .copiedOnly {
-                hud.show(.copiedOnly)
+            if case .copied(let reason) = await TextInserter.insert(dictation.finalText) {
+                hud.show(.copied(reason.message))
             }
         }
     }
@@ -171,7 +208,19 @@ final class DictationController: ObservableObject {
             return
         }
         if !stoppingRecordings.isEmpty { recorder.endTail() }
-        guard isModelLoaded, !isRecording, !settings.paused else { return }
+        guard !isRecording, !settings.paused else { return }
+        switch modelStatus {
+        case .downloading(let progress):
+            report("Downloading speech model · \(Int(progress * 100))%")
+            return
+        case .failed:
+            report("Speech model isn't ready", actionTitle: "Open") {
+                Navigation.shared.openSettings(tab: "Models")
+            }
+            return
+        case .loading, .ready:
+            break // While loading, record anyway: the dictation waits for the model.
+        }
         pressStartedAt = Date()
         startRecording()
     }
@@ -218,12 +267,17 @@ final class DictationController: ObservableObject {
         case .success(let started):
             // The sound means "go ahead", so it waits until the microphone is really on.
             if settings.playSounds { NSSound(named: "Tink")?.play() }
+            microphoneName = started.device.name
             if let note = InputDevices.shared.note(for: started, chosen: chosen) { hud.show(note: note) }
         case .failure(let error):
             log.error("Recording failed: \(error.localizedDescription, privacy: .public)")
             handsFree = false
             discardRecording()
-            hud.show(note: error.localizedDescription)
+            if case AudioRecorder.RecorderError.permissionMissing = error {
+                report(error.localizedDescription, actionTitle: "Open") { Permissions.shared.requestMicrophone() }
+            } else {
+                report(error.localizedDescription)
+            }
             showFailure(error.localizedDescription)
         }
     }
@@ -289,7 +343,7 @@ final class DictationController: ObservableObject {
         let app = targetApp
         stoppingRecordings.insert(number)
         refreshState()
-        hud.show(.transcribing)
+        showWork()
         recorder.stop(tail: tail ?? Self.tailSeconds) { [weak self] audio in
             MainActor.assumeIsolated { self?.recordingStopped(audio, number: number, app: app) }
         }
@@ -302,11 +356,23 @@ final class DictationController: ObservableObject {
         if settings.playSounds, !isRecording { NSSound(named: "Pop")?.play() }
 
         let seconds = Double(audio.count) / AudioRecorder.sampleRate
-        guard seconds >= Self.minimumSeconds, !AudioRecorder.isSilent(audio) else {
+        guard seconds >= Self.minimumSeconds else {
             refreshState()
             showWorkOrHide()
             return
         }
+        guard !AudioRecorder.isSilent(audio) else {
+            refreshState()
+            silentRecordings += 1
+            let text = microphoneName.map { "No sound heard · Mic: \($0)" } ?? "No sound heard"
+            if silentRecordings >= 2 {
+                report(text, actionTitle: "Check microphone") { Navigation.shared.openSettings(tab: "General") }
+            } else {
+                report(text)
+            }
+            return
+        }
+        silentRecordings = 0
 
         let second = settings.secondLanguage
         let forced: String? = switch settings.language {
@@ -329,19 +395,17 @@ final class DictationController: ObservableObject {
     }
 
     private func dictationEnded(_ outcome: DictationProcessor.Outcome) {
-        if case .failed(let message) = outcome { showFailure(message) }
-        guard !isRecording else { return }
-        // The job that just ended still counts as busy, so look only at what comes after it.
-        let moreToCome = processor.waitingCount > 0 || !stoppingRecordings.isEmpty
         switch outcome {
-        case .copiedOnly:
-            hud.show(.copiedOnly)
-        case .pasted where !moreToCome:
-            hud.show(.pasted)
-        case .noSpeech where !moreToCome, .failed where !moreToCome:
-            hud.hide()
-        default:
-            hud.show(.transcribing)
+        case .pasted:
+            // The job that just ended still counts as busy, so look only at what comes after it.
+            guard !isRecording else { return }
+            if processor.waitingCount > 0 || !stoppingRecordings.isEmpty { showWork() } else { hud.show(.pasted) }
+        case .copied(let reason):
+            if isRecording { hud.show(note: reason.message) } else { hud.show(.copied(reason.message)) }
+        case .noSpeech:
+            report("No speech recognized")
+        case .failed(let dictation):
+            report(dictation.message, actionTitle: "Retry") { [weak self] in self?.processor.retry(dictation.id) }
         }
     }
 
@@ -358,20 +422,51 @@ final class DictationController: ObservableObject {
 
     private func refreshState() {
         hotkey.capturesEscape = isRecording || isWorking
-        guard isModelLoaded else { return }
+        failedDictations = processor.failed
         if isRecording {
             state = .recording
         } else if isWorking {
             state = .transcribing
-        } else if let failureMessage {
-            state = .failed(failureMessage)
         } else {
-            state = .idle
+            switch modelStatus {
+            case .downloading(let progress): state = .loadingModel(progress: progress)
+            case .loading: state = .loadingModel(progress: 1)
+            case .failed(let problem): state = .failed(problem.message)
+            case .ready: state = failureMessage.map(State.failed) ?? .idle
+            }
         }
+        if case .transcribing = hud.phase, isWorking { showWork() }
+    }
+
+    /// What the indicator shows for work in progress.
+    private var workPhase: HUDController.Phase {
+        if modelStatus == .loading { return .message(.init(text: "Getting ready…", isSticky: true)) }
+        if processor.isSlow { return .message(.init(text: "Still working… Esc to cancel", isSticky: true)) }
+        return .transcribing(waiting: processor.waitingCount)
+    }
+
+    /// What to show once a timed message is over.
+    private var restingPhase: HUDController.Phase {
+        if isRecording { return .recording(handsFree: handsFree) }
+        return isWorking ? workPhase : .hidden
+    }
+
+    private func showWork() {
+        guard !isRecording else { return }
+        hud.show(workPhase)
     }
 
     private func showWorkOrHide() {
-        if isWorking { hud.show(.transcribing) } else { hud.hide() }
+        if isWorking { showWork() } else { hud.hide() }
+    }
+
+    /// Tells the user something. During a recording it goes above the meter, without a button.
+    private func report(_ text: String, actionTitle: String? = nil, action: (() -> Void)? = nil) {
+        if isRecording {
+            hud.show(note: text)
+        } else {
+            hud.show(message: text, actionTitle: actionTitle, action: action)
+        }
     }
 
     private func showFailure(_ message: String) {

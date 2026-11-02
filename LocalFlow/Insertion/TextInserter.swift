@@ -9,8 +9,20 @@ import CoreGraphics
 enum TextInserter {
     enum Outcome {
         case pasted
-        /// No text field was focused (or it's a password field). The text was left on the clipboard.
-        case copiedOnly
+        /// Couldn't paste, so the text was left on the clipboard.
+        case copied(Reason)
+
+        enum Reason {
+            case passwordField, noTextField, noAccessibility
+
+            var message: String {
+                switch self {
+                case .passwordField: "Password field · Copied, press ⌘V"
+                case .noTextField: "No text field · Copied, press ⌘V"
+                case .noAccessibility: "Copied · press ⌘V (Accessibility is off)"
+                }
+            }
+        }
     }
 
     /// How long to wait before restoring the clipboard. Slow apps read the paste late.
@@ -19,10 +31,9 @@ enum TextInserter {
     static func insert(_ text: String) async -> Outcome {
         let pasteboard = NSPasteboard.general
 
-        guard !IsSecureEventInputEnabled(), FocusedField.canReceiveText() else {
-            pasteboard.clearContents()
-            pasteboard.setString(text, forType: .string)
-            return .copiedOnly
+        if let reason = reasonNotToPaste() {
+            copy(text)
+            return .copied(reason)
         }
 
         let saved = snapshot(pasteboard)
@@ -38,6 +49,16 @@ enum TextInserter {
             restore(saved, to: pasteboard)
         }
         return .pasted
+    }
+
+    private static func reasonNotToPaste() -> Outcome.Reason? {
+        guard AXIsProcessTrusted() else { return .noAccessibility }
+        if IsSecureEventInputEnabled() { return .passwordField }
+        switch FocusedField.current() {
+        case .text: return nil
+        case .secure: return .passwordField
+        case .none: return .noTextField
+        }
     }
 
     static func copy(_ text: String) {
@@ -89,35 +110,39 @@ enum FocusedField {
         kAXTextFieldRole, kAXTextAreaRole, kAXComboBoxRole, "AXSearchField", "AXWebArea",
     ]
 
-    /// False only when we're sure there's nowhere to type. If Accessibility can't tell
-    /// (many Electron and custom-drawn apps), assume yes and paste.
-    static func canReceiveText() -> Bool {
+    enum Kind {
+        case text, secure, none
+    }
+
+    /// `.none` only when we're sure there's nowhere to type. If Accessibility can't tell
+    /// (many Electron and custom-drawn apps), assume text and paste.
+    static func current() -> Kind {
         let system = AXUIElementCreateSystemWide()
         AXUIElementSetMessagingTimeout(system, 0.25)
         var focused: CFTypeRef?
         let error = AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString, &focused)
-        if error == .noValue { return false }
-        guard error == .success, let focused else { return true }
+        if error == .noValue { return .none }
+        guard error == .success, let focused else { return .text }
         let element = focused as! AXUIElement
 
         var role: CFTypeRef?
         AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role)
         if let role = role as? String {
             if role == "AXSecureTextField" || (role == kAXTextFieldRole && subrole(of: element) == kAXSecureTextFieldSubrole) {
-                return false
+                return .secure
             }
-            if textRoles.contains(role) { return true }
+            if textRoles.contains(role) { return .text }
         }
         var settable = DarwinBoolean(false)
         if AXUIElementIsAttributeSettable(element, kAXValueAttribute as CFString, &settable) == .success, settable.boolValue {
-            return true
+            return .text
         }
         var range: CFTypeRef?
         if AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &range) == .success {
-            return true
+            return .text
         }
         // A known, non-text element (a button, a list) has focus.
-        return role == nil
+        return role == nil ? .text : .none
     }
 
     private static func subrole(of element: AXUIElement) -> String? {

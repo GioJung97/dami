@@ -131,10 +131,20 @@ struct OnboardingView: View {
                     Spacer()
                     Text(modelStatus).foregroundStyle(.secondary).monospacedDigit()
                 }
-                ProgressView(value: modelProgress)
-                Text("Picked for this Mac (\(MemoryInfo.macDescription)).")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                if case .failed(let problem) = controller.modelStatus {
+                    HStack {
+                        Text(problem.advice)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button(problem.actionTitle) { controller.retryModel() }
+                    }
+                } else {
+                    ProgressView(value: modelProgress)
+                    Text("This Mac: \(MemoryInfo.macDescription)")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
             }
             .padding(18)
             .background(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor)))
@@ -190,17 +200,17 @@ struct OnboardingView: View {
     // MARK: Navigation
 
     private var modelProgress: Double {
-        if case .loadingModel(let progress) = controller.state { return progress }
+        if case .downloading(let progress) = controller.modelStatus { return progress }
         return 1
     }
 
     private var modelStatus: String {
-        if case .loadingModel(let progress) = controller.state {
-            return progress < 1
-                ? "\(Int(progress * Double(Transcriber.modelSizeMB))) of \(Transcriber.modelSizeMB) MB"
-                : "Preparing…"
+        switch controller.modelStatus {
+        case .downloading(let progress): "\(Int(progress * Double(Transcriber.modelSizeMB))) of \(Transcriber.modelSizeMB) MB"
+        case .loading: "Preparing…"
+        case .ready: "Ready"
+        case .failed(let problem): problem.message
         }
-        return "Ready"
     }
 
     private var canContinue: Bool {

@@ -45,18 +45,33 @@ struct HUDView: View {
                         ElapsedTime(since: controller.recordingStartedAt)
                     }
                 }
-            case .transcribing:
-                pill { ThinkingDots() }
+            case .transcribing(let waiting):
+                pill {
+                    ThinkingDots()
+                    if waiting > 0 {
+                        Text("Processing · \(waiting) waiting").font(.system(size: 11, weight: .medium)).foregroundStyle(.white)
+                    }
+                }
             case .pasted:
                 pill {
                     Image(systemName: "checkmark").font(.system(size: 12, weight: .bold))
                         .foregroundStyle(Color(red: 0.19, green: 0.82, blue: 0.35))
                 }
-            case .copiedOnly:
+            case .copied(let text):
                 pill {
                     Image(systemName: "doc.on.clipboard").font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(Color(red: 1, green: 0.84, blue: 0.04))
-                    Text("Copied · press ⌘V").font(.system(size: 11, weight: .medium)).foregroundStyle(.white)
+                    Text(text).font(.system(size: 11, weight: .medium)).foregroundStyle(.white).lineLimit(1)
+                }
+            case .message(let message):
+                pill {
+                    Text(message.text).font(.system(size: 11, weight: .medium)).foregroundStyle(.white).lineLimit(1)
+                    if let title = message.actionTitle {
+                        Button(title) { controller.performMessageAction() }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color(red: 0.4, green: 0.72, blue: 1))
+                    }
                 }
             }
         }

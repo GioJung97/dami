@@ -25,6 +25,26 @@ struct MenuContent: View {
                 Divider().padding(.vertical, 4)
             }
 
+            ForEach(controller.failedDictations) { failed in
+                HStack(spacing: 2) {
+                    Button { controller.retry(failed) } label: {
+                        Label("Failed dictation · Retry", systemImage: "arrow.clockwise")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(MenuRowStyle())
+                    .help(failed.message)
+                    Button { controller.dismiss(failed) } label: {
+                        Image(systemName: "xmark").font(.system(size: 10, weight: .semibold))
+                    }
+                    .buttonStyle(MenuRowStyle())
+                    .frame(width: 28)
+                    .accessibilityLabel("Dismiss failed dictation")
+                }
+            }
+            if !controller.failedDictations.isEmpty {
+                Divider().padding(.vertical, 4)
+            }
+
             if settings.secondLanguage != nil {
                 HStack {
                     Text("Language").foregroundStyle(.secondary).font(.system(size: 12))
