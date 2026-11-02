@@ -137,7 +137,7 @@ final class DictationProcessor {
         let processed = TextPipeline.process(
             raw: result.text, mode: .light, language: result.language, rules: store.replacements.map(\.rule)
         )
-        let insertion = await TextInserter.insert(processed.final)
+        let insertion = await TextInserter.insert(processed.final, language: result.language)
         record(Dictation(
             createdAt: Date(),
             appName: job.appName,

@@ -102,6 +102,7 @@ final class DictationController: ObservableObject {
         processor.onSlow = { [weak self] in self?.showWork() }
         hud.restingPhase = { [weak self] in self?.restingPhase ?? .hidden }
 
+        TextInserter.keyboard = hotkey
         hotkey.shortcut = settings.shortcut
         hotkey.onPress = { [weak self] in self?.shortcutPressed() }
         hotkey.onRelease = { [weak self] in self?.shortcutReleased() }
@@ -181,7 +182,7 @@ final class DictationController: ObservableObject {
         Task {
             // Give the menu or window time to close so focus returns to the previous app.
             try? await Task.sleep(for: .milliseconds(150))
-            if case .copied(let reason) = await TextInserter.insert(dictation.finalText) {
+            if case .copied(let reason) = await TextInserter.insert(dictation.finalText, language: dictation.language) {
                 hud.show(.copied(reason.message))
             }
         }

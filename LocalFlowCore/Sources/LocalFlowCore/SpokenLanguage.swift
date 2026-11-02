@@ -19,6 +19,8 @@ public struct SpokenLanguage: Identifiable, Hashable, Sendable {
     public let script: Script?
     /// Tested on real recordings. The others have prompts that haven't been benchmarked yet.
     public let verified: Bool
+    /// False for languages written without spaces between words, like Japanese and Chinese.
+    public var usesSpaces: Bool { Self.usesSpaces(code) }
 
     public var id: String { code }
     public var label: String { code.uppercased() }
@@ -105,6 +107,11 @@ public struct SpokenLanguage: Identifiable, Hashable, Sendable {
             script: .devanagari, verified: false
         ),
     ]
+
+    /// Whether a language puts spaces between words. Takes any Whisper code, including English.
+    public static func usesSpaces(_ code: String) -> Bool {
+        !["ja", "zh"].contains(code)
+    }
 
     public static func find(_ code: String?) -> SpokenLanguage? {
         all.first { $0.code == code }

@@ -77,4 +77,28 @@ final class HotkeyMachineTests: XCTestCase {
         XCTAssertEqual(machine.tapRestored(isStillHeld: false), .init(signal: .release))
         XCTAssertEqual(machine.tapRestored(isStillHeld: false), .init())
     }
+
+    func testKeyPressedFlag() {
+        var machine = modifierOnly()
+        XCTAssertFalse(machine.keyPressed)
+        _ = machine.handle(.flagsChanged(modifiers: rightCommandOption))
+        _ = machine.handle(.flagsChanged(modifiers: 0))
+        XCTAssertFalse(machine.keyPressed, "The shortcut itself isn't typing")
+        _ = machine.handle(.keyDown(keyCode: vKey, modifiers: 0), isSynthetic: true)
+        XCTAssertFalse(machine.keyPressed, "Our own paste isn't typing")
+        _ = machine.handle(.keyDown(keyCode: vKey, modifiers: 0))
+        XCTAssertTrue(machine.keyPressed)
+        machine.clearKeyPressed()
+        XCTAssertFalse(machine.keyPressed)
+    }
+
+    func testSwallowedKeysDontCountAsTyping() {
+        let space: UInt16 = 0x31
+        var machine = HotkeyMachine(shortcut: .init(modifiers: 0x1, keyCode: space))
+        _ = machine.handle(.keyDown(keyCode: space, modifiers: 0x1))
+        XCTAssertFalse(machine.keyPressed)
+        machine.capturesEscape = true
+        _ = machine.handle(.keyDown(keyCode: escape, modifiers: 0))
+        XCTAssertFalse(machine.keyPressed)
+    }
 }

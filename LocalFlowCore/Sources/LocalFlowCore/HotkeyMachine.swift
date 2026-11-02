@@ -49,6 +49,8 @@ public struct HotkeyMachine: Sendable {
     /// While the shortcut recorder in Settings is open, the shortcut does nothing.
     public var isSuspended = false
     public private(set) var isHeld = false
+    /// A key was pressed since `clearKeyPressed`. Which key isn't kept anywhere.
+    public private(set) var keyPressed = false
 
     public init(shortcut: Shortcut) {
         self.shortcut = shortcut
@@ -60,7 +62,13 @@ public struct HotkeyMachine: Sendable {
         if case .keyDown(Self.escapeKeyCode, _) = event, capturesEscape {
             return Action(swallow: true, signal: .escape)
         }
-        return shortcut.keyCode == nil ? handleModifierOnly(event) : handleKey(event)
+        let action = shortcut.keyCode == nil ? handleModifierOnly(event) : handleKey(event)
+        if case .keyDown = event, !action.swallow { keyPressed = true }
+        return action
+    }
+
+    public mutating func clearKeyPressed() {
+        keyPressed = false
     }
 
     /// A timed-out tap misses events. If the shortcut was released meanwhile, report it now, so a

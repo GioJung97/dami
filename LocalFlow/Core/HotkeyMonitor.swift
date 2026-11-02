@@ -39,6 +39,14 @@ final class HotkeyMonitor {
         set { machine.withLock { $0.isSuspended = newValue } }
     }
 
+    /// Whether a key was pressed since the last call. Only that: which key is never recorded.
+    func takeKeyPressed() -> Bool {
+        machine.withLock { machine in
+            defer { machine.clearKeyPressed() }
+            return machine.keyPressed
+        }
+    }
+
     private let machine = OSAllocatedUnfairLock(
         initialState: HotkeyMachine(shortcut: HotkeyMonitor.machineShortcut(.defaultDictation))
     )
