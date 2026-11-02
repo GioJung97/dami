@@ -28,6 +28,18 @@ speak English plus one other language (Korean is the tested one) or both mixed, 
 - English words inside Korean sentences stay in English.
 - No network except one-time model downloads.
 
+## Current state and branches
+
+- **v0.2 is implemented but not finished.** The work is on branch `v0.2`. `main` is still the version before it, on purpose.
+- **Don't merge `v0.2` into `main`, and don't suggest it as the next step,** until all of this is true:
+  1. Every "Must still be tested" item in `docs/plans/v0.2.md` §6 is checked off.
+  2. The owner has used it daily for a week without losing speech silently.
+  3. The owner says to merge.
+- Then: tick §6, add a dated Status line to `PLAN.md` §7, and merge.
+- Keep working on `v0.2`. On a new machine: `git fetch && git switch v0.2`.
+- Ask before any push or merge. Nothing gets published without the owner's say. The repo is private, and `docs/` and `bench/`
+  hold personal notes to review before it goes public.
+
 ## Working rules
 
 - Ask the user to test in the real app before committing.
