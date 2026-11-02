@@ -25,6 +25,17 @@ actor Transcriber {
         var keepEnglishTerms: Bool
         /// English terms from the Dictionary, used as the prompt for English dictations.
         var vocabulary: [String]
+        /// Measure each word's timing and confidence, for `Result.words`. Measured cost: at most
+        /// 23 ms on 3–29 s of audio. v0.3 can use it to tell mishearing from a change of mind.
+        var wordTimestamps = false
+    }
+
+    /// One word with when it was said and how sure Whisper was.
+    struct Word: Codable, Sendable {
+        let word: String
+        let start: Float
+        let end: Float
+        let probability: Float
     }
 
     struct Result: Sendable {
@@ -34,6 +45,7 @@ actor Transcriber {
         let prompt: String?
         /// The vocabulary list, if that's what the prompt was.
         let promptVocabulary: [String]
+        var words: [Word] = []
     }
 
     private var whisper: WhisperKit?
@@ -168,16 +180,17 @@ actor Transcriber {
             prompt = options.vocabulary.isEmpty ? nil : options.vocabulary.joined(separator: ", ") + "."
         }
 
-        var run = try await run(whisper, audio, prompt: prompt, language: language)
+        var run = try await run(whisper, audio, prompt: prompt, language: language, wordTimestamps: options.wordTimestamps)
         if let script = second?.script, prompt != nil, !run.text.isEmpty, !script.matches(run.text) {
-            run = try await self.run(whisper, audio, prompt: nil, language: language)
+            run = try await self.run(whisper, audio, prompt: nil, language: language, wordTimestamps: options.wordTimestamps)
             prompt = nil
         }
         return Result(
             text: run.text,
             language: language ?? run.language ?? "en",
             prompt: prompt,
-            promptVocabulary: prompt != nil && language == "en" ? options.vocabulary : []
+            promptVocabulary: prompt != nil && language == "en" ? options.vocabulary : [],
+            words: run.words
         )
     }
 
@@ -216,7 +229,7 @@ actor Transcriber {
     }
 
     /// Mirrors the whisperkit-cli settings used in the Phase 0 benchmark.
-    private func run(_ whisper: WhisperKit, _ audio: [Float], prompt: String?, language: String?) async throws -> (text: String, language: String?) {
+    private func run(_ whisper: WhisperKit, _ audio: [Float], prompt: String?, language: String?, wordTimestamps: Bool) async throws -> (text: String, language: String?, words: [Word]) {
         var options = DecodingOptions(
             task: .transcribe,
             language: language,
@@ -232,6 +245,7 @@ actor Transcriber {
             noSpeechThreshold: 0.6,
             chunkingStrategy: .vad
         )
+        options.wordTimestamps = wordTimestamps
         if let prompt, let tokenizer = whisper.tokenizer {
             options.promptTokens = tokenizer.encode(text: " " + prompt)
                 .filter { $0 < tokenizer.specialTokens.specialTokenBegin }
@@ -239,7 +253,8 @@ actor Transcriber {
         }
         let results = try await whisper.transcribe(audioArray: audio, decodeOptions: options)
         let text = results.map(\.text).joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
-        return (text, results.first?.language)
+        let words = results.flatMap(\.allWords).map { Word(word: $0.word, start: $0.start, end: $0.end, probability: $0.probability) }
+        return (text, results.first?.language, words)
     }
 
     enum TranscriberError: LocalizedError {

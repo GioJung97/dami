@@ -8,6 +8,11 @@ struct HistoryView: View {
     @State private var search = ""
     @State private var filter = "ALL"
     @State private var selection: Dictation.ID?
+    /// What the current search and filter found so far. More loads while scrolling.
+    @State private var items: [Dictation] = []
+    @State private var hasMore = false
+
+    private static let pageSize = 200
 
 
     var body: some View {
@@ -35,7 +40,9 @@ struct HistoryView: View {
                     ForEach(groupedByDay, id: \.day) { group in
                         Section(group.day) {
                             ForEach(group.items) { item in
-                                HistoryRow(dictation: item).tag(item.id)
+                                HistoryRow(dictation: item)
+                                    .tag(item.id)
+                                    .onAppear { if item.id == items.last?.id { loadMore() } }
                             }
                         }
                     }
@@ -46,7 +53,7 @@ struct HistoryView: View {
                     if let selected {
                         HistoryDetail(dictation: selected)
                     } else {
-                        Text(filtered.isEmpty ? "No dictations" : "Select a dictation")
+                        Text(items.isEmpty ? "No dictations" : "Select a dictation")
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
@@ -55,7 +62,13 @@ struct HistoryView: View {
             }
         }
         .padding(28)
-        .onAppear { if selection == nil { selection = filtered.first?.id } }
+        .onAppear {
+            reload()
+            if selection == nil { selection = items.first?.id }
+        }
+        .onChange(of: search) { reload() }
+        .onChange(of: filter) { reload() }
+        .onChange(of: store.revision) { reload() }
     }
 
     private var filters: [(String, String)] {
@@ -67,22 +80,40 @@ struct HistoryView: View {
         return filters
     }
 
-    private var filtered: [Dictation] {
-        store.dictations.filter { item in
-            (filter == "ALL" || item.languageLabel == filter)
-                && (search.isEmpty || item.finalText.localizedCaseInsensitiveContains(search)
-                    || item.rawText.localizedCaseInsensitiveContains(search))
+    private var query: Store.HistoryQuery {
+        let language: Store.LanguageFilter
+        if let second = settings.secondLanguage, filter == second.label {
+            language = .language(second.code, excludingMixed: second.script != nil)
+        } else if let second = settings.secondLanguage, filter == "MIXED" {
+            language = .mixed(second.code)
+        } else {
+            language = filter == "EN" ? .english : .all
         }
+        return Store.HistoryQuery(search: search, language: language)
+    }
+
+    /// Queries again, keeping as many rows as are showing so the list doesn't jump.
+    private func reload() {
+        let limit = max(Self.pageSize, items.count)
+        items = store.history(query, limit: limit)
+        hasMore = items.count == limit
+    }
+
+    private func loadMore() {
+        guard hasMore else { return }
+        let page = store.history(query, limit: Self.pageSize, offset: items.count)
+        items += page
+        hasMore = page.count == Self.pageSize
     }
 
     private var selected: Dictation? {
-        filtered.first { $0.id == selection }
+        items.first { $0.id == selection }
     }
 
     private var groupedByDay: [(day: String, items: [Dictation])] {
         let calendar = Calendar.current
         var groups: [(day: String, items: [Dictation])] = []
-        for item in filtered {
+        for item in items {
             let day: String
             if calendar.isDateInToday(item.createdAt) {
                 day = "Today"
@@ -184,7 +215,7 @@ private struct HistoryDetail: View {
 
     private var audioURL: URL? {
         guard let id = dictation.id else { return nil }
-        let url = Store.audioURL(for: id)
+        let url = Store.shared.audioURL(for: id)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
@@ -210,9 +241,10 @@ struct AddTermSheet: View {
             Text("A name or term LocalFlow should always spell this way.")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
-            TextField("e.g. Supabase, 김지수", text: $term)
+            TextField("e.g. Supabase, Tailwind", text: $term)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(add)
+            SecondScriptTermHint(term: term)
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }

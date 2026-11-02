@@ -19,6 +19,7 @@ final class DictationProcessor {
         let seconds: Double
         let options: Transcriber.Options
         let mode: CleanupMode
+        let inputTransport: String?
         let appName: String?
         let appBundleID: String?
     }
@@ -154,7 +155,15 @@ final class DictationProcessor {
             latencySeconds: transcribed.latency,
             rawText: result.text,
             finalText: processed.final,
-            note: Self.note(for: processed)
+            note: Self.note(for: processed),
+            mode: job.mode.rawValue,
+            rulesText: job.mode == .light ? processed.final : nil,
+            rulesApplied: job.mode == .light ? Self.json(processed.rulesApplied.map(\.rawValue)) : nil,
+            insertOutcome: insertion.recordName,
+            modelName: Transcriber.modelName,
+            pipelineVersion: TextPipeline.version,
+            inputTransport: job.inputTransport,
+            wordsJSON: result.words.isEmpty ? nil : Self.json(result.words)
         ), audio: job.audio, uses: processed.replacementUses)
         switch insertion {
         case .pasted: onOutcome?(.pasted)
@@ -193,10 +202,14 @@ final class DictationProcessor {
         if settings.retentionDays >= 0 {
             saved = store.add(dictation)
             if settings.saveAudio, let id = saved.id {
-                try? AudioRecorder.writeWAV(audio, to: Store.audioURL(for: id))
+                try? AudioRecorder.writeWAV(audio, to: store.audioURL(for: id))
             }
         }
         onRecorded?(saved)
+    }
+
+    private static func json<T: Encodable>(_ values: [T]) -> String? {
+        (try? JSONEncoder().encode(values)).flatMap { String(data: $0, encoding: .utf8) }
     }
 
     /// What changed between what Whisper wrote and what was pasted, for History.

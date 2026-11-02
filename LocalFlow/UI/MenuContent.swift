@@ -89,7 +89,8 @@ struct MenuContent: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                ForEach(controller.recent) { dictation in
+                ForEach(controller.recent) { item in
+                    let dictation = item.dictation
                     Button {
                         dismiss()
                         controller.pasteAgain(dictation)

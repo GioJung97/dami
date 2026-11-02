@@ -26,6 +26,9 @@ public struct ProcessedText: Equatable, Sendable {
 
 /// Turns a transcript into the text to paste.
 public enum TextPipeline {
+    /// Recorded with each dictation, so results can be told apart when the rules change.
+    public static let version = "1"
+
     /// - Parameter language: Whisper code of the detected language, e.g. "ko".
     public static func process(raw: String, mode: CleanupMode, language: String, rules: [ReplacementRule]) -> ProcessedText {
         guard mode == .light else {

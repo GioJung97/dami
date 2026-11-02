@@ -20,6 +20,18 @@ struct InputDevice: Identifiable, Hashable, Sendable {
         [kAudioDeviceTransportTypeBluetooth, kAudioDeviceTransportTypeBluetoothLE].contains(transport)
     }
 
+    /// For the history record.
+    var transportName: String {
+        switch transport {
+        case kAudioDeviceTransportTypeBuiltIn: "builtIn"
+        case kAudioDeviceTransportTypeUSB: "usb"
+        case kAudioDeviceTransportTypeAggregate, kAudioDeviceTransportTypeAutoAggregate: "aggregate"
+        case kAudioDeviceTransportTypeVirtual: "virtual"
+        default:
+            if isBluetooth { "bluetooth" } else if isContinuity { "continuity" } else { "other" }
+        }
+    }
+
     var isContinuity: Bool {
         [kAudioDeviceTransportTypeContinuityCaptureWired, kAudioDeviceTransportTypeContinuityCaptureWireless]
             .contains(transport)

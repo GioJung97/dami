@@ -34,6 +34,7 @@ final class DictationController: ObservableObject {
     /// Recording limit, in every mode.
     static let limitWarningSeconds: TimeInterval = 540
     static let limitSeconds: TimeInterval = 600
+    static let pruneIntervalSeconds: TimeInterval = 86_400
 
     /// Whether the speech model can be used, apart from anything a single dictation does.
     enum ModelStatus: Equatable {
@@ -49,7 +50,13 @@ final class DictationController: ObservableObject {
     @Published private(set) var failedDictations: [DictationProcessor.FailedDictation] = []
     @Published private(set) var hotkeyActive = false
     /// Recent results kept in memory, so "paste again" works even when history is off.
-    @Published private(set) var recent: [Dictation] = []
+    @Published private(set) var recent: [RecentDictation] = []
+
+    /// With history off, dictations have no database id, so each entry gets its own.
+    struct RecentDictation: Identifiable {
+        let id = UUID()
+        let dictation: Dictation
+    }
 
     let hud = HUDController()
 
@@ -70,6 +77,7 @@ final class DictationController: ObservableObject {
     /// Silent recordings in a row. A second one suggests the wrong microphone.
     private var silentRecordings = 0
     private var microphoneName: String?
+    private var microphoneTransport: String?
     /// Recordings stopped but not yet handed over: the tail is still running.
     private var stoppingRecordings: Set<Int> = []
     private var targetApp: NSRunningApplication?
@@ -96,7 +104,7 @@ final class DictationController: ObservableObject {
         processor.onOutcome = { [weak self] in self?.dictationEnded($0) }
         processor.onRecorded = { [weak self] saved in
             guard let self else { return }
-            recent = Array(([saved] + recent).prefix(3))
+            recent = Array(([RecentDictation(dictation: saved)] + recent).prefix(3))
         }
         processor.onChange = { [weak self] in self?.refreshState() }
         processor.onSlow = { [weak self] in self?.showWork() }
@@ -125,8 +133,8 @@ final class DictationController: ObservableObject {
             .sink { [weak self] in self?.objectWillChange.send() }
             .store(in: &cancellables)
 
-        store.prune(retentionDays: settings.retentionDays)
-        recent = Array(store.dictations.prefix(3))
+        startPruning()
+        recent = store.dictations.prefix(3).map(RecentDictation.init)
         startHotkeyWhenPermitted()
 
         loadModel()
@@ -144,6 +152,16 @@ final class DictationController: ObservableObject {
 
     func dismiss(_ dictation: DictationProcessor.FailedDictation) {
         processor.dismiss(dictation.id)
+    }
+
+    /// At launch and every day after, since the app can run for weeks.
+    private func startPruning() {
+        Task {
+            while !Task.isCancelled {
+                store.prune(retentionDays: settings.retentionDays, audioRetentionDays: settings.audioRetentionDays)
+                try? await Task.sleep(for: .seconds(Self.pruneIntervalSeconds))
+            }
+        }
     }
 
     private func loadModel(deletingFirst: Bool = false) {
@@ -269,6 +287,7 @@ final class DictationController: ObservableObject {
             // The sound means "go ahead", so it waits until the microphone is really on.
             if settings.playSounds { NSSound(named: "Tink")?.play() }
             microphoneName = started.device.name
+            microphoneTransport = started.device.transportName
             if let note = InputDevices.shared.note(for: started, chosen: chosen) { hud.show(note: note) }
         case .failure(let error):
             log.error("Recording failed: \(error.localizedDescription, privacy: .public)")
@@ -388,9 +407,11 @@ final class DictationController: ObservableObject {
                 secondLanguage: second,
                 forcedLanguage: forced,
                 keepEnglishTerms: settings.keepEnglishTerms,
-                vocabulary: store.vocabulary.map(\.term).filter { term in second?.script?.matches(term) != true }
+                vocabulary: store.vocabulary.map(\.term).filter { term in second?.script?.matches(term) != true },
+                wordTimestamps: true
             ),
             mode: settings.cleanupMode,
+            inputTransport: microphoneTransport,
             appName: app?.localizedName,
             appBundleID: app?.bundleIdentifier
         ))

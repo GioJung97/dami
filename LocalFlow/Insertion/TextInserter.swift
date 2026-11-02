@@ -13,6 +13,16 @@ enum TextInserter {
         /// Couldn't paste, so the text was left on the clipboard.
         case copied(Reason)
 
+        /// For the history record.
+        var recordName: String {
+            switch self {
+            case .pasted: "pasted"
+            case .copied(.passwordField): "copied.passwordField"
+            case .copied(.noTextField): "copied.noTextField"
+            case .copied(.noAccessibility): "copied.noAccessibility"
+            }
+        }
+
         enum Reason {
             case passwordField, noTextField, noAccessibility
 

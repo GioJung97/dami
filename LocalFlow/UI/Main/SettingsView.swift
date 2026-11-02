@@ -323,17 +323,26 @@ enum MemoryInfo {
 private struct PrivacySection: View {
     @ObservedObject private var settings = AppSettings.shared
     @State private var confirmingDelete = false
+    @State private var audioBytes: Int64 = 0
+
+    private func prune() {
+        Store.shared.prune(retentionDays: settings.retentionDays, audioRetentionDays: settings.audioRetentionDays)
+        audioBytes = Store.shared.audioBytesUsed()
+    }
 
     var body: some View {
         Section {
             Label("Everything runs on this Mac. Your voice and text are never uploaded.", systemImage: "lock.fill")
                 .foregroundStyle(.blue)
+            Text("Text history is stored unencrypted on this Mac until you delete it. Audio is only saved if you turn that on below.")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
         }
         Section {
             Picker("Keep history for", selection: $settings.retentionDays) {
                 ForEach(AppSettings.retentionChoices, id: \.days) { Text($0.label).tag($0.days) }
             }
-            .onChange(of: settings.retentionDays) { _, days in Store.shared.prune(retentionDays: days) }
+            .onChange(of: settings.retentionDays) { prune() }
             Toggle(isOn: $settings.saveAudio) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Save audio recordings")
@@ -343,6 +352,15 @@ private struct PrivacySection: View {
                 }
             }
             .disabled(settings.retentionDays < 0)
+            if settings.saveAudio {
+                Picker("Keep recordings for", selection: $settings.audioRetentionDays) {
+                    ForEach(AppSettings.audioRetentionChoices, id: \.self) { Text("\($0) days").tag($0) }
+                }
+                .onChange(of: settings.audioRetentionDays) { prune() }
+            }
+            if settings.saveAudio || audioBytes > 0 {
+                LabeledContent("Space used by recordings", value: ByteCountFormatter.string(fromByteCount: audioBytes, countStyle: .file))
+            }
         }
         Section {
             Button("Delete all history…", role: .destructive) { confirmingDelete = true }
@@ -352,5 +370,7 @@ private struct PrivacySection: View {
                     Text("Your Dictionary is kept. This can't be undone.")
                 }
         }
+        .onAppear { audioBytes = Store.shared.audioBytesUsed() }
+        .onChange(of: settings.saveAudio) { audioBytes = Store.shared.audioBytesUsed() }
     }
 }
