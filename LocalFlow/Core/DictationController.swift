@@ -3,7 +3,8 @@ import Combine
 import LocalFlowCore
 import os
 
-/// Runs dictation: shortcut → record → transcribe → replacements → paste → history.
+/// The shortcut and the current recording. A finished recording goes to `DictationProcessor`, so
+/// the next one can start right away.
 @MainActor
 final class DictationController: ObservableObject {
     enum State: Equatable {
@@ -46,12 +47,18 @@ final class DictationController: ObservableObject {
     private let hotkey = HotkeyMonitor()
     private let recorder = AudioRecorder()
     private let transcriber = Transcriber()
+    private let processor: DictationProcessor
     private let log = Logger(subsystem: "com.localflow.app", category: "dictation")
     private var cancellables: Set<AnyCancellable> = []
 
     private var pressStartedAt: Date?
     private var lastTapAt: Date?
     private var handsFree = false
+    private var isRecording = false
+    private var isModelLoaded = false
+    private var failureMessage: String?
+    /// Recordings stopped but not yet handed over: the tail is still running.
+    private var stoppingRecordings: Set<Int> = []
     private var targetApp: NSRunningApplication?
     private var limitTask: Task<Void, Never>?
     /// Tells a late result from `recorder.start` which recording it belongs to.
@@ -77,11 +84,19 @@ final class DictationController: ObservableObject {
     }
 
     init() {
+        processor = DictationProcessor(transcriber: transcriber)
+        processor.onOutcome = { [weak self] in self?.dictationEnded($0) }
+        processor.onRecorded = { [weak self] saved in
+            guard let self else { return }
+            recent = Array(([saved] + recent).prefix(3))
+        }
+        processor.onChange = { [weak self] in self?.refreshState() }
+
         hotkey.shortcut = settings.shortcut
         hotkey.onPress = { [weak self] in self?.shortcutPressed() }
         hotkey.onRelease = { [weak self] in self?.shortcutReleased() }
-        hotkey.onCancel = { [weak self] in self?.cancel() }
-        hotkey.onEscape = { [weak self] in self?.cancel() }
+        hotkey.onCancel = { [weak self] in self?.cancelRecording() }
+        hotkey.onEscape = { [weak self] in self?.escapePressed() }
         recorder.onLevel = { [weak self] level in
             Task { @MainActor in self?.hud.push(level: level) }
         }
@@ -110,7 +125,8 @@ final class DictationController: ObservableObject {
                         if case .loadingModel = self?.state { self?.state = .loadingModel(progress: progress) }
                     }
                 }
-                state = .idle
+                isModelLoaded = true
+                refreshState()
                 log.info("Model loaded")
             } catch {
                 state = .failed(error.localizedDescription)
@@ -149,19 +165,19 @@ final class DictationController: ObservableObject {
     }
 
     private func shortcutPressed() {
-        if state == .recording && handsFree {
+        if isRecording && handsFree {
             handsFree = false
             finish()
             return
         }
-        if state == .transcribing { recorder.endTail() }
-        guard state == .idle, !settings.paused else { return }
+        if !stoppingRecordings.isEmpty { recorder.endTail() }
+        guard isModelLoaded, !isRecording, !settings.paused else { return }
         pressStartedAt = Date()
         startRecording()
     }
 
     private func shortcutReleased() {
-        guard state == .recording, !handsFree, let started = pressStartedAt else { return }
+        guard isRecording, !handsFree, let started = pressStartedAt else { return }
         let held = Date().timeIntervalSince(started)
         if held >= Self.minimumSeconds {
             finish()
@@ -184,8 +200,7 @@ final class DictationController: ObservableObject {
 
     private func startRecording() {
         targetApp = NSWorkspace.shared.frontmostApplication
-        state = .recording
-        hotkey.isRecording = true
+        setRecording(true)
         hud.show(.recording(handsFree: false))
         startLimitTimer()
 
@@ -198,7 +213,7 @@ final class DictationController: ObservableObject {
     }
 
     private func recordingStarted(_ result: Result<AudioRecorder.Started, Error>, number: Int, chosen: String?) {
-        guard number == recordingNumber, state == .recording else { return }
+        guard number == recordingNumber, isRecording else { return }
         switch result {
         case .success(let started):
             // The sound means "go ahead", so it waits until the microphone is really on.
@@ -220,7 +235,7 @@ final class DictationController: ObservableObject {
             guard !Task.isCancelled else { return }
             hud.show(note: "1 minute left")
             try? await Task.sleep(for: .seconds(Self.limitSeconds - Self.limitWarningSeconds))
-            guard !Task.isCancelled, state == .recording else { return }
+            guard !Task.isCancelled, isRecording else { return }
             handsFree = false
             hud.show(note: "10 minute limit reached")
             finish()
@@ -228,14 +243,14 @@ final class DictationController: ObservableObject {
     }
 
     private func microphoneLost() {
-        guard state == .recording else { return }
+        guard isRecording else { return }
         handsFree = false
         hud.show(note: "Microphone disconnected · kept what you said")
         finish(tail: 0)
     }
 
     private func finishBeforeSleep() {
-        guard state == .recording else { return }
+        guard isRecording else { return }
         handsFree = false
         finish(tail: 0)
     }
@@ -243,35 +258,53 @@ final class DictationController: ObservableObject {
     private func discardRecording() {
         limitTask?.cancel()
         recorder.stop { _ in }
-        hotkey.isRecording = false
-        state = .idle
-        hud.hide()
+        setRecording(false)
+        showWorkOrHide()
     }
 
-    private func cancel() {
-        guard state == .recording else { return }
+    private func cancelRecording() {
+        guard isRecording else { return }
         handsFree = false
         discardRecording()
     }
 
-    private func finish(tail: TimeInterval? = nil) {
-        limitTask?.cancel()
-        hotkey.isRecording = false
-        state = .transcribing
-        hud.show(.transcribing)
-        recorder.stop(tail: tail ?? Self.tailSeconds) { [weak self] audio in
-            MainActor.assumeIsolated { self?.transcribe(audio) }
+    /// Esc cancels the recording if there is one, otherwise everything still being processed.
+    private func escapePressed() {
+        if isRecording {
+            cancelRecording()
+        } else if isWorking {
+            stoppingRecordings.removeAll()
+            recorder.endTail()
+            processor.cancelAll()
+            refreshState()
+            hud.hide()
         }
     }
 
-    private func transcribe(_ audio: [Float]) {
+    private func finish(tail: TimeInterval? = nil) {
+        limitTask?.cancel()
+        setRecording(false)
+
+        let number = recordingNumber
+        let app = targetApp
+        stoppingRecordings.insert(number)
+        refreshState()
+        hud.show(.transcribing)
+        recorder.stop(tail: tail ?? Self.tailSeconds) { [weak self] audio in
+            MainActor.assumeIsolated { self?.recordingStopped(audio, number: number, app: app) }
+        }
+    }
+
+    private func recordingStopped(_ audio: [Float], number: Int, app: NSRunningApplication?) {
+        // Esc may have cancelled it during the tail.
+        guard stoppingRecordings.remove(number) != nil else { return }
         // After the tail, so the microphone doesn't pick up the sound.
-        if settings.playSounds { NSSound(named: "Pop")?.play() }
+        if settings.playSounds, !isRecording { NSSound(named: "Pop")?.play() }
 
         let seconds = Double(audio.count) / AudioRecorder.sampleRate
         guard seconds >= Self.minimumSeconds, !AudioRecorder.isSilent(audio) else {
-            state = .idle
-            hud.hide()
+            refreshState()
+            showWorkOrHide()
             return
         }
 
@@ -281,75 +314,73 @@ final class DictationController: ObservableObject {
         case .english: "en"
         case .second: second?.code ?? "en"
         }
-        let options = Transcriber.Options(
-            secondLanguage: second,
-            forcedLanguage: forced,
-            keepEnglishTerms: settings.keepEnglishTerms,
-            vocabulary: store.vocabulary.map(\.term).filter { term in second?.script?.matches(term) != true }
-        )
-        let app = targetApp
+        processor.add(DictationProcessor.Job(
+            audio: audio,
+            seconds: seconds,
+            options: Transcriber.Options(
+                secondLanguage: second,
+                forcedLanguage: forced,
+                keepEnglishTerms: settings.keepEnglishTerms,
+                vocabulary: store.vocabulary.map(\.term).filter { term in second?.script?.matches(term) != true }
+            ),
+            appName: app?.localizedName,
+            appBundleID: app?.bundleIdentifier
+        ))
+    }
 
-        Task {
-            let started = Date()
-            do {
-                let result = try await transcriber.transcribe(audio, options: options)
-                let latency = Date().timeIntervalSince(started)
-                log.info("[\(result.language, privacy: .public)] \(String(format: "%.1f", seconds))s audio → \(String(format: "%.2f", latency))s")
-
-                guard !HallucinationFilter.isHallucination(result.text) else {
-                    state = .idle
-                    hud.hide()
-                    return
-                }
-                let processed = TextPipeline.process(
-                    raw: result.text, mode: .light, language: result.language, rules: store.replacements.map(\.rule)
-                )
-                let outcome = await TextInserter.insert(processed.final)
-                hud.show(outcome == .pasted ? .pasted : .copiedOnly)
-
-                record(Dictation(
-                    createdAt: Date(),
-                    appName: app?.localizedName,
-                    appBundleID: app?.bundleIdentifier,
-                    language: result.language,
-                    audioSeconds: seconds,
-                    latencySeconds: latency,
-                    rawText: result.text,
-                    finalText: processed.final,
-                    note: Self.note(for: processed.replacementUses)
-                ), audio: audio, uses: processed.replacementUses)
-                state = .idle
-            } catch {
-                log.error("Transcription failed: \(error.localizedDescription, privacy: .public)")
-                showFailure(error.localizedDescription)
-            }
+    private func dictationEnded(_ outcome: DictationProcessor.Outcome) {
+        if case .failed(let message) = outcome { showFailure(message) }
+        guard !isRecording else { return }
+        // The job that just ended still counts as busy, so look only at what comes after it.
+        let moreToCome = processor.waitingCount > 0 || !stoppingRecordings.isEmpty
+        switch outcome {
+        case .copiedOnly:
+            hud.show(.copiedOnly)
+        case .pasted where !moreToCome:
+            hud.show(.pasted)
+        case .noSpeech where !moreToCome, .failed where !moreToCome:
+            hud.hide()
+        default:
+            hud.show(.transcribing)
         }
     }
 
-    private func record(_ dictation: Dictation, audio: [Float], uses: [Int64: Int]) {
-        store.recordUses(uses)
-        var saved = dictation
-        if settings.retentionDays >= 0 {
-            saved = store.add(dictation)
-            if settings.saveAudio, let id = saved.id {
-                try? AudioRecorder.writeWAV(audio, to: Store.audioURL(for: id))
-            }
-        }
-        recent = Array(([saved] + recent).prefix(3))
+    // MARK: State
+
+    /// Work that hasn't been cancelled: a tail still running, or dictations in the processor.
+    private var isWorking: Bool { processor.isBusy || !stoppingRecordings.isEmpty }
+
+    private func setRecording(_ recording: Bool) {
+        isRecording = recording
+        processor.isRecording = recording
+        refreshState()
     }
 
-    private static func note(for uses: [Int64: Int]) -> String? {
-        let total = uses.values.reduce(0, +)
-        guard total > 0 else { return nil }
-        return total == 1 ? "1 replacement applied from your Dictionary." : "\(total) replacements applied from your Dictionary."
+    private func refreshState() {
+        hotkey.capturesEscape = isRecording || isWorking
+        guard isModelLoaded else { return }
+        if isRecording {
+            state = .recording
+        } else if isWorking {
+            state = .transcribing
+        } else if let failureMessage {
+            state = .failed(failureMessage)
+        } else {
+            state = .idle
+        }
+    }
+
+    private func showWorkOrHide() {
+        if isWorking { hud.show(.transcribing) } else { hud.hide() }
     }
 
     private func showFailure(_ message: String) {
-        state = .failed(message)
-        hud.hide()
+        failureMessage = message
+        refreshState()
         Task {
             try? await Task.sleep(for: .seconds(3))
-            if case .failed = state { state = .idle }
+            failureMessage = nil
+            refreshState()
         }
     }
 }

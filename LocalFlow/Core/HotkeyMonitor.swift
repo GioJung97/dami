@@ -1,30 +1,48 @@
 import Carbon.HIToolbox
 import CoreGraphics
 import Foundation
+import LocalFlowCore
+import os
 
-/// Watches the keyboard system-wide for the dictation shortcut.
+/// Watches the keyboard system-wide for the dictation shortcut. `HotkeyMachine` decides what each
+/// event means; this feeds it from an event tap.
 ///
-/// - Modifier-only shortcuts (Right ⌘ + Right ⌥): pressed when exactly those modifiers are held.
-///   If another key is pressed meanwhile, it was an app shortcut, so the press is cancelled.
-/// - Key shortcuts (⌃ Space): the key events are swallowed so they don't also type into the app.
-/// - Esc is swallowed and reported while `isRecording` is true.
+/// Every keystroke on the Mac passes through the tap, so it has its own thread: a stall on the main
+/// thread must never delay typing elsewhere. Handlers are called on the main thread.
 ///
 /// Needs Input Monitoring (to listen) and Accessibility (to swallow keys).
 final class HotkeyMonitor {
+    /// Marks events LocalFlow posts itself, so the tap can tell them from real typing.
+    static let syntheticEventTag: Int64 = 0x4C46_4C57
+
     var onPress: (() -> Void)?
     var onRelease: (() -> Void)?
     var onCancel: (() -> Void)?
     var onEscape: (() -> Void)?
 
-    /// Set from the main thread; read on the event tap's callback (also the main run loop).
-    var shortcut: Shortcut = .defaultDictation { didSet { held = false } }
-    var isRecording = false
-    /// While the shortcut recorder in Settings is open, the monitor stays quiet.
-    var isSuspended = false
+    var shortcut: Shortcut = .defaultDictation {
+        didSet {
+            let converted = Self.machineShortcut(shortcut)
+            machine.withLock { $0.shortcut = converted }
+        }
+    }
 
+    /// True while Esc should reach `onEscape` rather than the focused app.
+    var capturesEscape: Bool {
+        get { machine.withLock { $0.capturesEscape } }
+        set { machine.withLock { $0.capturesEscape = newValue } }
+    }
+
+    /// While the shortcut recorder in Settings is open, the monitor stays quiet.
+    var isSuspended: Bool {
+        get { machine.withLock { $0.isSuspended } }
+        set { machine.withLock { $0.isSuspended = newValue } }
+    }
+
+    private let machine = OSAllocatedUnfairLock(
+        initialState: HotkeyMachine(shortcut: HotkeyMonitor.machineShortcut(.defaultDictation))
+    )
     private var tap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
-    private var held = false
 
     /// Returns false if the tap couldn't be created (usually missing permissions).
     @discardableResult
@@ -47,68 +65,79 @@ final class HotkeyMonitor {
             return false
         }
         self.tap = tap
-        runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
+        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        let thread = Thread {
+            CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+            CGEvent.tapEnable(tap: tap, enable: true)
+            CFRunLoopRun()
+        }
+        thread.name = "com.localflow.eventtap"
+        thread.qualityOfService = .userInteractive
+        thread.start()
         return true
     }
 
-    /// Returns true to swallow the event.
+    /// Runs on the tap's thread. Returns true to swallow the event.
     private func handle(type: CGEventType, event: CGEvent) -> Bool {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
+            let action = machine.withLock { machine in
+                machine.tapRestored(isStillHeld: Self.isHeldNow(machine.shortcut))
+            }
+            fire(action.signal)
             return false
         }
-        guard !isSuspended else { return false }
 
         let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
-        let current = Shortcut.Modifiers(eventFlags: event.flags.rawValue)
-
-        if type == .keyDown, keyCode == UInt16(kVK_Escape), isRecording {
-            fire(onEscape)
-            return true
-        }
-
-        if shortcut.isModifierOnly {
-            switch type {
-            case .flagsChanged:
-                let matches = current == shortcut.modifiers
-                if matches && !held {
-                    held = true
-                    fire(onPress)
-                } else if !matches && held {
-                    held = false
-                    fire(onRelease)
-                }
-            case .keyDown:
-                if held {
-                    held = false
-                    fire(onCancel)
-                }
-            default:
-                break
-            }
-            return false
-        }
-
-        guard keyCode == shortcut.keyCode else { return false }
+        let modifiers = Shortcut.Modifiers(eventFlags: event.flags.rawValue).rawValue
+        let keyEvent: HotkeyMachine.Event
         switch type {
-        case .keyDown where current == shortcut.modifiers:
-            if !held {
-                held = true
-                fire(onPress)
-            }
-            return true // also swallows key repeats
-        case .keyUp where held:
-            held = false
-            fire(onRelease)
-            return true
-        default:
-            return false
+        case .flagsChanged: keyEvent = .flagsChanged(modifiers: modifiers)
+        case .keyDown: keyEvent = .keyDown(keyCode: keyCode, modifiers: modifiers)
+        case .keyUp: keyEvent = .keyUp(keyCode: keyCode, modifiers: modifiers)
+        default: return false
         }
+        let isSynthetic = event.getIntegerValueField(.eventSourceUserData) == Self.syntheticEventTag
+        let action = machine.withLock { $0.handle(keyEvent, isSynthetic: isSynthetic) }
+        fire(action.signal)
+        return action.swallow
     }
 
-    private func fire(_ handler: (() -> Void)?) {
+    private func fire(_ signal: HotkeyMachine.Signal?) {
+        let handler: (() -> Void)?
+        switch signal {
+        case .press: handler = onPress
+        case .release: handler = onRelease
+        case .cancel: handler = onCancel
+        case .escape: handler = onEscape
+        case nil: return
+        }
         DispatchQueue.main.async { handler?() }
+    }
+
+    /// Checks the keyboard directly, for when the tap missed events. Uses the generic modifier flags,
+    /// which are always reported: at worst, letting go of one side while still holding the other
+    /// counts as held, which a later real event corrects.
+    private static func isHeldNow(_ shortcut: HotkeyMachine.Shortcut) -> Bool {
+        let flags = CGEventSource.flagsState(.combinedSessionState)
+        let modifiers = Shortcut.Modifiers(rawValue: shortcut.modifiers)
+        let required: [(Shortcut.Modifiers, CGEventFlags)] = [
+            ([.leftCommand, .rightCommand], .maskCommand),
+            ([.leftOption, .rightOption], .maskAlternate),
+            ([.leftControl, .rightControl], .maskControl),
+            ([.leftShift, .rightShift], .maskShift),
+            (.function, .maskSecondaryFn),
+        ]
+        for (group, flag) in required where !modifiers.isDisjoint(with: group) && !flags.contains(flag) {
+            return false
+        }
+        if let keyCode = shortcut.keyCode {
+            return CGEventSource.keyState(.combinedSessionState, key: keyCode)
+        }
+        return true
+    }
+
+    private static func machineShortcut(_ shortcut: Shortcut) -> HotkeyMachine.Shortcut {
+        HotkeyMachine.Shortcut(modifiers: shortcut.modifiers.rawValue, keyCode: shortcut.keyCode)
     }
 }

@@ -50,8 +50,10 @@ enum TextInserter {
         let vKey = CGKeyCode(kVK_ANSI_V)
         let down = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: true)
         let up = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: false)
-        down?.flags = .maskCommand
-        up?.flags = .maskCommand
+        for event in [down, up] {
+            event?.flags = .maskCommand
+            event?.setIntegerValueField(.eventSourceUserData, value: HotkeyMonitor.syntheticEventTag)
+        }
         down?.post(tap: .cgAnnotatedSessionEventTap)
         up?.post(tap: .cgAnnotatedSessionEventTap)
     }
