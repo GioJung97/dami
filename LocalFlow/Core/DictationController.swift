@@ -28,6 +28,11 @@ final class DictationController: ObservableObject {
     static let minimumSeconds = 0.3
     /// Two taps closer than this start hands-free recording.
     static let doubleTapWindow = 0.45
+    /// Keep recording this long after release, so last syllables survive.
+    static let tailSeconds = 0.2
+    /// Recording limit, in every mode.
+    static let limitWarningSeconds: TimeInterval = 540
+    static let limitSeconds: TimeInterval = 600
 
     @Published private(set) var state: State = .loadingModel(progress: 0)
     @Published private(set) var hotkeyActive = false
@@ -48,6 +53,9 @@ final class DictationController: ObservableObject {
     private var lastTapAt: Date?
     private var handsFree = false
     private var targetApp: NSRunningApplication?
+    private var limitTask: Task<Void, Never>?
+    /// Tells a late result from `recorder.start` which recording it belongs to.
+    private var recordingNumber = 0
 
     var statusText: String {
         switch state {
@@ -77,6 +85,12 @@ final class DictationController: ObservableObject {
         recorder.onLevel = { [weak self] level in
             Task { @MainActor in self?.hud.push(level: level) }
         }
+        recorder.onDeviceLost = { [weak self] in
+            MainActor.assumeIsolated { self?.microphoneLost() }
+        }
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification)
+            .sink { [weak self] _ in self?.finishBeforeSleep() }
+            .store(in: &cancellables)
 
         settings.$shortcut
             .sink { [weak self] in self?.hotkey.shortcut = $0 }
@@ -140,6 +154,7 @@ final class DictationController: ObservableObject {
             finish()
             return
         }
+        if state == .transcribing { recorder.endTail() }
         guard state == .idle, !settings.paused else { return }
         pressStartedAt = Date()
         startRecording()
@@ -168,21 +183,66 @@ final class DictationController: ObservableObject {
     // MARK: Recording
 
     private func startRecording() {
-        do {
-            targetApp = NSWorkspace.shared.frontmostApplication
-            try recorder.start()
-            state = .recording
-            hotkey.isRecording = true
-            hud.show(.recording(handsFree: false))
+        targetApp = NSWorkspace.shared.frontmostApplication
+        state = .recording
+        hotkey.isRecording = true
+        hud.show(.recording(handsFree: false))
+        startLimitTimer()
+
+        recordingNumber += 1
+        let number = recordingNumber
+        let chosen = settings.inputDeviceUID
+        recorder.start(deviceUID: chosen) { [weak self] result in
+            MainActor.assumeIsolated { self?.recordingStarted(result, number: number, chosen: chosen) }
+        }
+    }
+
+    private func recordingStarted(_ result: Result<AudioRecorder.Started, Error>, number: Int, chosen: String?) {
+        guard number == recordingNumber, state == .recording else { return }
+        switch result {
+        case .success(let started):
+            // The sound means "go ahead", so it waits until the microphone is really on.
             if settings.playSounds { NSSound(named: "Tink")?.play() }
-        } catch {
+            if let note = InputDevices.shared.note(for: started, chosen: chosen) { hud.show(note: note) }
+        case .failure(let error):
             log.error("Recording failed: \(error.localizedDescription, privacy: .public)")
+            handsFree = false
+            discardRecording()
+            hud.show(note: error.localizedDescription)
             showFailure(error.localizedDescription)
         }
     }
 
+    private func startLimitTimer() {
+        limitTask?.cancel()
+        limitTask = Task {
+            try? await Task.sleep(for: .seconds(Self.limitWarningSeconds))
+            guard !Task.isCancelled else { return }
+            hud.show(note: "1 minute left")
+            try? await Task.sleep(for: .seconds(Self.limitSeconds - Self.limitWarningSeconds))
+            guard !Task.isCancelled, state == .recording else { return }
+            handsFree = false
+            hud.show(note: "10 minute limit reached")
+            finish()
+        }
+    }
+
+    private func microphoneLost() {
+        guard state == .recording else { return }
+        handsFree = false
+        hud.show(note: "Microphone disconnected · kept what you said")
+        finish(tail: 0)
+    }
+
+    private func finishBeforeSleep() {
+        guard state == .recording else { return }
+        handsFree = false
+        finish(tail: 0)
+    }
+
     private func discardRecording() {
-        _ = recorder.stop()
+        limitTask?.cancel()
+        recorder.stop { _ in }
         hotkey.isRecording = false
         state = .idle
         hud.hide()
@@ -194,9 +254,18 @@ final class DictationController: ObservableObject {
         discardRecording()
     }
 
-    private func finish() {
-        let audio = recorder.stop()
+    private func finish(tail: TimeInterval? = nil) {
+        limitTask?.cancel()
         hotkey.isRecording = false
+        state = .transcribing
+        hud.show(.transcribing)
+        recorder.stop(tail: tail ?? Self.tailSeconds) { [weak self] audio in
+            MainActor.assumeIsolated { self?.transcribe(audio) }
+        }
+    }
+
+    private func transcribe(_ audio: [Float]) {
+        // After the tail, so the microphone doesn't pick up the sound.
         if settings.playSounds { NSSound(named: "Pop")?.play() }
 
         let seconds = Double(audio.count) / AudioRecorder.sampleRate
@@ -206,8 +275,6 @@ final class DictationController: ObservableObject {
             return
         }
 
-        state = .transcribing
-        hud.show(.transcribing)
         let second = settings.secondLanguage
         let forced: String? = switch settings.language {
         case .auto: nil

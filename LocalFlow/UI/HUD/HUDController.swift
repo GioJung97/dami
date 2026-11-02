@@ -18,9 +18,12 @@ final class HUDController: ObservableObject {
     @Published private(set) var phase: Phase = .hidden
     @Published private(set) var levels: [Float] = Array(repeating: 0, count: barCount)
     @Published private(set) var recordingStartedAt = Date()
+    /// A short message above the pill. Independent of the phase, so a recording keeps its meter.
+    @Published private(set) var note: String?
 
     private var panel: NSPanel?
     private var hideTask: Task<Void, Never>?
+    private var noteTask: Task<Void, Never>?
 
     func show(_ phase: Phase) {
         hideTask?.cancel()
@@ -42,6 +45,18 @@ final class HUDController: ObservableObject {
         hideTask?.cancel()
         withAnimation(.easeOut(duration: 0.18)) { phase = .hidden }
         scheduleOrderOut()
+    }
+
+    func show(note: String) {
+        noteTask?.cancel()
+        withAnimation(.easeOut(duration: 0.18)) { self.note = note }
+        present()
+        noteTask = Task {
+            try? await Task.sleep(for: Self.noteDuration)
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.18)) { self.note = nil }
+            scheduleOrderOut()
+        }
     }
 
     func push(level: Float) {
@@ -66,14 +81,16 @@ final class HUDController: ObservableObject {
     private func scheduleOrderOut() {
         hideTask = Task {
             try? await Task.sleep(for: .milliseconds(250))
-            guard !Task.isCancelled, phase == .hidden else { return }
+            guard !Task.isCancelled, phase == .hidden, note == nil else { return }
             panel?.orderOut(nil)
         }
     }
 
     // MARK: Window
 
-    private static let size = NSSize(width: 220, height: 44)
+    static let noteDuration: Duration = .seconds(4)
+    /// Room for the pill and a note above or below it. The panel itself is invisible.
+    private static let size = NSSize(width: 360, height: 76)
 
     private func present() {
         let panel = self.panel ?? makePanel()

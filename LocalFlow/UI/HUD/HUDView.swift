@@ -5,6 +5,32 @@ struct HUDView: View {
     @ObservedObject var controller: HUDController
 
     var body: some View {
+        let atBottom = AppSettings.shared.hudPosition == .bottomCenter
+        VStack(spacing: 6) {
+            if atBottom { noteLabel }
+            phaseView
+            if !atBottom { noteLabel }
+        }
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: atBottom ? .bottom : .top)
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder private var noteLabel: some View {
+        if let note = controller.note {
+            Text(note)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .padding(.horizontal, 10)
+                .frame(height: 22)
+                .background(Capsule().fill(Color(white: 0.11).opacity(0.92)))
+                .transition(.opacity)
+        }
+    }
+
+    private var phaseView: some View {
         ZStack {
             switch controller.phase {
             case .hidden:
@@ -34,8 +60,6 @@ struct HUDView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .combine)
     }
 
     private func pill<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {

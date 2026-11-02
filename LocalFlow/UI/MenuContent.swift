@@ -40,6 +40,16 @@ struct MenuContent: View {
                 .padding(.vertical, 6)
             }
 
+            HStack {
+                Text("Microphone").foregroundStyle(.secondary).font(.system(size: 12))
+                Spacer()
+                MicrophonePicker(label: "Microphone")
+                    .labelsHidden()
+                    .frame(width: 180)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+
             if !controller.recent.isEmpty {
                 Divider().padding(.vertical, 4)
                 Text("RECENT · CLICK TO PASTE AGAIN")

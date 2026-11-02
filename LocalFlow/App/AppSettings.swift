@@ -42,6 +42,8 @@ final class AppSettings: ObservableObject {
         }
     }
     @Published var keepEnglishTerms: Bool { didSet { defaults.set(keepEnglishTerms, forKey: "keepEnglishInKorean") } }
+    /// The microphone to record from, by Core Audio UID. Nil follows the macOS default.
+    @Published var inputDeviceUID: String? { didSet { defaults.set(inputDeviceUID, forKey: "inputDeviceUID") } }
     @Published var playSounds: Bool { didSet { defaults.set(playSounds, forKey: "playSounds") } }
     @Published var hudPosition: HUDPosition { didSet { defaults.set(hudPosition.rawValue, forKey: "hudPosition") } }
     @Published var retentionDays: Int { didSet { defaults.set(retentionDays, forKey: "retentionDays") } }
@@ -71,6 +73,7 @@ final class AppSettings: ObservableObject {
         secondLanguage = second
         language = second == nil ? .english : savedMode == "korean" ? .second : LanguageMode(rawValue: savedMode ?? "") ?? .auto
         keepEnglishTerms = defaults.object(forKey: "keepEnglishInKorean") as? Bool ?? true
+        inputDeviceUID = defaults.string(forKey: "inputDeviceUID")
         playSounds = defaults.object(forKey: "playSounds") as? Bool ?? true
         hudPosition = HUDPosition(rawValue: defaults.string(forKey: "hudPosition") ?? "") ?? .bottomCenter
         retentionDays = defaults.object(forKey: "retentionDays") as? Int ?? 30

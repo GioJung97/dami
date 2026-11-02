@@ -55,6 +55,7 @@ struct SettingsView: View {
     @ViewBuilder private var general: some View {
         Section {
             Toggle("Open at login", isOn: Binding(get: { settings.launchAtLogin }, set: { settings.launchAtLogin = $0 }))
+            MicrophonePicker(label: "Microphone")
             Toggle("Play sounds when recording starts and stops", isOn: $settings.playSounds)
             Picker("Recording indicator position", selection: $settings.hudPosition) {
                 ForEach(AppSettings.HUDPosition.allCases) { Text($0.label).tag($0) }
