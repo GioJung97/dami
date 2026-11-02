@@ -1,3 +1,4 @@
+import LocalFlowCore
 import SwiftUI
 
 /// The panel that drops down from the menu bar icon.
@@ -59,6 +60,17 @@ struct MenuContent: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
             }
+
+            HStack {
+                Text("Cleanup").foregroundStyle(.secondary).font(.system(size: 12))
+                Spacer()
+                CleanupModePicker(label: "Cleanup")
+                    .labelsHidden()
+                    .frame(width: 120)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .help(settings.cleanupMode.explanation)
 
             HStack {
                 Text("Microphone").foregroundStyle(.secondary).font(.system(size: 12))

@@ -65,6 +65,12 @@ struct SettingsView: View {
         Section {
             Toggle("Open at login", isOn: Binding(get: { settings.launchAtLogin }, set: { settings.launchAtLogin = $0 }))
             MicrophonePicker(label: "Microphone")
+            VStack(alignment: .leading, spacing: 6) {
+                CleanupModePicker(label: "Cleanup")
+                Text(settings.cleanupMode.explanation)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
             Toggle("Play sounds when recording starts and stops", isOn: $settings.playSounds)
             Picker("Recording indicator position", selection: $settings.hudPosition) {
                 ForEach(AppSettings.HUDPosition.allCases) { Text($0.label).tag($0) }
@@ -261,10 +267,10 @@ private struct ModelsSection: View {
             LabeledContent("This Mac", value: MemoryInfo.macDescription)
         }
         Section("Cleanup model") {
-            LabeledContent("Removes fillers like \"um\" and \"음\"") {
+            LabeledContent("Rewrites sentences") {
                 Text("Not installed").foregroundStyle(.secondary)
             }
-            Text("Comes with Smart mode in a later update. It will load only while you dictate.")
+            Text("Comes with Smart mode in a later update. It will load only while you dictate. Light mode doesn't need it.")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
         }

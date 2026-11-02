@@ -1,11 +1,13 @@
 import Foundation
 
 /// How much LocalFlow changes what Whisper wrote.
-public enum CleanupMode: String, CaseIterable, Sendable {
+public enum CleanupMode: String, CaseIterable, Identifiable, Sendable {
     /// Exactly what Whisper wrote.
     case raw
-    /// Replacements.
+    /// Replacements, then conservative rules.
     case light
+
+    public var id: String { rawValue }
 }
 
 /// What each stage of the pipeline produced.
@@ -18,6 +20,8 @@ public struct ProcessedText: Equatable, Sendable {
     public var final: String
     /// Replacement id → how many times it fired.
     public var replacementUses: [Int64: Int]
+    /// Cleanup rules that changed something.
+    public var rulesApplied: [CleanupRules.Rule]
 }
 
 /// Turns a transcript into the text to paste.
@@ -25,9 +29,13 @@ public enum TextPipeline {
     /// - Parameter language: Whisper code of the detected language, e.g. "ko".
     public static func process(raw: String, mode: CleanupMode, language: String, rules: [ReplacementRule]) -> ProcessedText {
         guard mode == .light else {
-            return ProcessedText(raw: raw, afterReplacements: raw, final: raw, replacementUses: [:])
+            return ProcessedText(raw: raw, afterReplacements: raw, final: raw, replacementUses: [:], rulesApplied: [])
         }
         let replaced = ReplacementEngine.apply(rules, to: raw)
-        return ProcessedText(raw: raw, afterReplacements: replaced.text, final: replaced.text, replacementUses: replaced.uses)
+        let cleaned = CleanupRules.apply(to: replaced.text, language: language)
+        return ProcessedText(
+            raw: raw, afterReplacements: replaced.text, final: cleaned.text,
+            replacementUses: replaced.uses, rulesApplied: cleaned.applied
+        )
     }
 }

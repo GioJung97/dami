@@ -390,6 +390,7 @@ final class DictationController: ObservableObject {
                 keepEnglishTerms: settings.keepEnglishTerms,
                 vocabulary: store.vocabulary.map(\.term).filter { term in second?.script?.matches(term) != true }
             ),
+            mode: settings.cleanupMode,
             appName: app?.localizedName,
             appBundleID: app?.bundleIdentifier
         ))

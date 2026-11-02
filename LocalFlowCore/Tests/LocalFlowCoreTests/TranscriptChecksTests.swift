@@ -117,11 +117,25 @@ final class TextPipelineTests: XCTestCase {
         XCTAssertEqual(result.afterReplacements, "LocalFlow 테스트")
         XCTAssertEqual(result.final, "LocalFlow 테스트")
         XCTAssertEqual(result.replacementUses, [7: 1])
+        XCTAssertEqual(result.rulesApplied, [])
     }
 
     func testRawChangesNothing() {
         let result = TextPipeline.process(raw: "로컬플로우 테스트", mode: .raw, language: "ko", rules: rules)
         XCTAssertEqual(result.final, "로컬플로우 테스트")
         XCTAssertEqual(result.replacementUses, [:])
+    }
+
+    func testLightRunsRulesAfterReplacements() {
+        let result = TextPipeline.process(raw: "음, 로컬플로우 테스트", mode: .light, language: "ko", rules: rules)
+        XCTAssertEqual(result.afterReplacements, "음, LocalFlow 테스트")
+        XCTAssertEqual(result.final, "LocalFlow 테스트")
+        XCTAssertEqual(result.rulesApplied, [.koreanFillers])
+    }
+
+    func testRawRunsNoRules() {
+        let result = TextPipeline.process(raw: "Um, the the report", mode: .raw, language: "en", rules: [])
+        XCTAssertEqual(result.final, "Um, the the report")
+        XCTAssertEqual(result.rulesApplied, [])
     }
 }

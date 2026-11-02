@@ -18,6 +18,7 @@ final class DictationProcessor {
         let audio: [Float]
         let seconds: Double
         let options: Transcriber.Options
+        let mode: CleanupMode
         let appName: String?
         let appBundleID: String?
     }
@@ -130,13 +131,19 @@ final class DictationProcessor {
         let result = transcribed.result
         log.info("[\(result.language, privacy: .public)] \(String(format: "%.1f", job.seconds))s audio → \(String(format: "%.2f", transcribed.latency))s")
 
-        guard !HallucinationFilter.isHallucination(result.text) else {
+        guard !HallucinationFilter.isHallucination(result.text),
+              !PromptLeak.isLeak(output: result.text, prompt: result.prompt, vocabulary: result.promptVocabulary) else {
             onOutcome?(.noSpeech)
             return
         }
         let processed = TextPipeline.process(
-            raw: result.text, mode: .light, language: result.language, rules: store.replacements.map(\.rule)
+            raw: result.text, mode: job.mode, language: result.language, rules: store.replacements.map(\.rule)
         )
+        // Nothing but fillers.
+        guard !processed.final.isEmpty else {
+            onOutcome?(.noSpeech)
+            return
+        }
         let insertion = await TextInserter.insert(processed.final, language: result.language)
         record(Dictation(
             createdAt: Date(),
@@ -147,7 +154,7 @@ final class DictationProcessor {
             latencySeconds: transcribed.latency,
             rawText: result.text,
             finalText: processed.final,
-            note: Self.note(for: processed.replacementUses)
+            note: Self.note(for: processed)
         ), audio: job.audio, uses: processed.replacementUses)
         switch insertion {
         case .pasted: onOutcome?(.pasted)
@@ -192,9 +199,16 @@ final class DictationProcessor {
         onRecorded?(saved)
     }
 
-    private static func note(for uses: [Int64: Int]) -> String? {
-        let total = uses.values.reduce(0, +)
-        guard total > 0 else { return nil }
-        return total == 1 ? "1 replacement applied from your Dictionary." : "\(total) replacements applied from your Dictionary."
+    /// What changed between what Whisper wrote and what was pasted, for History.
+    private static func note(for processed: ProcessedText) -> String? {
+        var parts: [String] = []
+        let total = processed.replacementUses.values.reduce(0, +)
+        if total > 0 {
+            parts.append(total == 1 ? "1 replacement applied from your Dictionary." : "\(total) replacements applied from your Dictionary.")
+        }
+        for summary in processed.rulesApplied.map(\.summary) where !parts.contains(summary) {
+            parts.append(summary)
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " ")
     }
 }

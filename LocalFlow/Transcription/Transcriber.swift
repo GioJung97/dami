@@ -30,6 +30,10 @@ actor Transcriber {
     struct Result: Sendable {
         let text: String
         let language: String
+        /// The prompt behind `text`, if any. Whisper can repeat it on noise.
+        let prompt: String?
+        /// The vocabulary list, if that's what the prompt was.
+        let promptVocabulary: [String]
     }
 
     private var whisper: WhisperKit?
@@ -155,7 +159,7 @@ actor Transcriber {
         }
 
         let second = language == "en" ? nil : options.secondLanguage
-        let prompt: String?
+        var prompt: String?
         if language == nil {
             prompt = nil
         } else if let second {
@@ -167,8 +171,14 @@ actor Transcriber {
         var run = try await run(whisper, audio, prompt: prompt, language: language)
         if let script = second?.script, prompt != nil, !run.text.isEmpty, !script.matches(run.text) {
             run = try await self.run(whisper, audio, prompt: nil, language: language)
+            prompt = nil
         }
-        return Result(text: run.text, language: language ?? run.language ?? "en")
+        return Result(
+            text: run.text,
+            language: language ?? run.language ?? "en",
+            prompt: prompt,
+            promptVocabulary: prompt != nil && language == "en" ? options.vocabulary : []
+        )
     }
 
     /// Whisper's own detection picks from all 99 languages, so Korean is sometimes heard as Japanese.
