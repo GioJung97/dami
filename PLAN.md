@@ -227,6 +227,26 @@ Before relying on it for v0.3 decisions (LLM, speech model choice), collect more
 - Keep all audio out of git (`bench/clips/` is git-ignored). Voice is personal data, and git history keeps deleted
   files. Move clips between Macs by AirDrop/USB or a private drive.
 
+**Plan for growing the set (owner's decision, 2026-11-02).** Split by the question each step answers:
+
+| When | Question | Data |
+|---|---|---|
+| From now, during v0.2 daily use | What does the owner's real dictation sound like? | "Save audio recordings" on, kept 90 days |
+| Start of v0.3 | Did v0.2 make accuracy worse? | The existing 30 clips, copied from the other Mac |
+| Before the LLM or speech model decision | Is a change better for the owner's speech? | 50–100 saved recordings picked and given correct text, including long dictations |
+| Before an open-source release | Does it work for other people? | Other speakers with consent, public datasets |
+
+- **The app's pipeline needs its own eval tool first.** `bench/run.py` uses `whisperkit-cli`, so the Phase 0 numbers don't
+  cover the Swift pipeline, restricted language detection, the 0.2 s tail or word timing.
+- **The clips are one sentence each, while real dictations run longer** (median 17 s in 10 dictations, a small sample).
+  The larger set must include long ones.
+- **Saved recordings expire after 90 days.** Copy the ones chosen for eval into `bench/clips/` before then. They are
+  stored unencrypted, at about 2 MB per minute.
+- **Compare mics only after the Bluetooth problem is looked at** (`docs/plans/v0.2.md`, later list). AirPods recording
+  isn't reliable yet.
+- **Not decided: who writes the correct text.** The owner by hand is the most accurate. Whisper drafts for the owner to fix
+  would mean an agent reading those dictations, which needs the owner's permission for those clips.
+
 ---
 
 ## 6. Project layout
