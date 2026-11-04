@@ -8,38 +8,47 @@ Nothing leaves your Mac. No subscription.
 
 ## Roadmap
 
-Updated 2026-11-04. Through v0.3 is planned work. Everything after it is a rough direction, not a commitment. Each version has one
-goal, and its details live in `docs/plans/`.
+Updated 2026-11-04. The frame comes first: build to an official version, v1.0, and improve after it. Work goes in here and details
+live in `docs/plans/`. The frame can change, but only on purpose. A bug that loses speech, pastes wrongly or breaks trust gets fixed
+right away, in any version.
 
 | Version | Goal | Done when | State |
 |---|---|---|---|
 | v0.1 | It works: hold a key, speak, paste | Usable every day | Done, on `main` |
 | v0.2 | It can be trusted all day | Must-test list done, a week of use without losing speech silently, owner says merge (`docs/plans/v0.2.md`) | Week of use, until 2026-11-11 at the earliest |
-| v0.3 | It starts learning from fixes, and the LLM question gets answered | `docs/plans/v0.3.md` §6 | Planned, not started |
-| Better text *(undecided)* | Output needs fewer fixes | Depends on v0.3's measurements: an LLM if justified, or accuracy and spacing work instead | No plan yet |
-| Public release *(undecided)* | Other people can install and trust it | See below | No plan yet |
+| v0.3 | It learns from fixes | `docs/plans/v0.3.md` §6 | Planned, not started |
+| v0.4 | It cleans up text with a local LLM | `docs/plans/v0.4.md` | Outline only |
+| **v1.0** | **Anyone on a Mac can install and trust it** | See below | No plan yet |
+| After v1.0 | Improve, based on real needs | Each change on its own | Not scheduled, below |
 
 **Long-term goal:** accuracy improves for each person the more they use it, with everything staying on their Mac.
 
-**Public release conditions (proposed, not decided):**
-1. v0.3 is finished.
-2. 2–5 other people have used it with consent, without losing speech, using a diagnostics export with no text in it.
-3. It's published with fresh git history, so personal notes and benchmarks in `docs/` and `bench/` aren't exposed.
-4. There's a signed, notarized `.dmg`.
-5. Known limits are written down honestly.
+**v1.0 is done when:**
+1. v0.2, v0.3 and v0.4 are finished, and unfinished screens such as "Coming later" are cleaned up.
+2. There's a `.dmg` on GitHub Releases, so people don't need Xcode. Not on the App Store and not notarized (owner, 2026-11-04), so the
+   README and download page explain the first-launch block and how to allow it in System Settings.
+3. On another Mac without Xcode: install from the `.dmg`, allow it, finish onboarding, dictate. Installing a new version over it keeps
+   the permissions. This has never been tried with the current signature.
+4. 2–5 other people have used it with consent, without losing speech, using a diagnostics export with no text in it.
+5. It's published with fresh git history, so personal notes and benchmarks in `docs/` and `bench/` aren't exposed.
+6. 8 GB Macs such as the MacBook Neo: Smart is off by default, and marked untested unless someone among those people has one. The owner
+   has no 8 GB Mac.
+7. Known limits are written down honestly.
 
 **Not scheduled.** The one list of ideas with no version yet. Pick from here when planning a version.
 
 | Area | Items |
 |---|---|
-| Accuracy | Mixed-language prompt and decoder changes, Korean terms in the prompt, a small spacing corrector, Whisper fine-tuning |
+| Evaluation | Eval tool on the app's pipeline, a larger clip set (`docs/plans/v0.3.md` §7, §5 below) |
+| Accuracy | Very short dictations (`docs/plans/v0.3.md` §7), mixed-language prompt and decoder changes, Korean terms in the prompt, a small spacing corrector, Whisper fine-tuning |
 | Recording | Hands-free stops itself after a long silence (owner's idea, low priority), streaming while speaking, Bluetooth microphone reliability, microphone ranking |
-| Models | A lighter and a heavier speech model in Settings |
+| Models | A lighter and a heavier speech model in Settings, choosing models by hardware |
 | Learning | Showing what was learned, highlights on low-probability words, re-dictation detection, merged Dictionary |
 | Pasting | Protection when focus changes during processing, checks in apps not yet tried (Safari, Electron, Word) |
 | Features | Command mode, per-app modes |
 | Across Macs | Dictionary export and import, backups, sync |
-| Project | CI |
+| Project | CI, paid Apple account and notarization if permissions don't survive updates |
+| Platforms | Windows and Linux. Today's app is tied to Swift and macOS, so this means rebuilding most of it |
 
 ---
 
@@ -256,7 +265,7 @@ gets scored against these (WER for English, CER for Korean) so we know if things
 **Limits of this set (noted 2026-11-02):** 30 clips is too small for reliable comparisons. Ten clips per language
 means one wrong word visibly moves the score. All clips are one speaker (the owner), one Mac microphone and a quiet
 room, so results are biased toward that voice and don't show how other speakers, accents, mics or noise behave.
-Before relying on it for v0.3 decisions (LLM, speech model choice), collect more data:
+Before relying on it for later decisions (speech model choice, accuracy changes), collect more data:
 - More clips from the owner across mics (built-in, AirPods/Bluetooth), rooms, speaking speed and length.
 - Other speakers with consent, especially for an open-source release.
 - Public datasets for each language (e.g. Common Voice, FLEURS; Korean: Zeroth, KsponSpeech), checking licences.
@@ -269,9 +278,9 @@ Before relying on it for v0.3 decisions (LLM, speech model choice), collect more
 | When | Question | Data |
 |---|---|---|
 | From now, during v0.2 daily use | What does the owner's real dictation sound like? | "Save audio recordings" on, kept 90 days |
-| Start of v0.3 | Did v0.2 make accuracy worse? | The existing 30 clips, copied from the other Mac |
-| Before the LLM or speech model decision | Is a change better for the owner's speech? | 50–100 saved recordings picked and given correct text, including long dictations |
-| Before an open-source release | Does it work for other people? | Other speakers with consent, public datasets |
+| After v1.0, or if accuracy looks worse | Did v0.2 make accuracy worse? | The existing 30 clips, copied from the other Mac |
+| Before a speech model or accuracy change | Is a change better for the owner's speech? | 50–100 saved recordings picked and given correct text, including long dictations |
+| Around v1.0 | Does it work for other people? | Other speakers with consent, public datasets |
 
 - **The app's pipeline needs its own eval tool first.** `bench/run.py` uses `whisperkit-cli`, so the Phase 0 numbers don't
   cover the Swift pipeline, restricted language detection, the 0.2 s tail or word timing.
@@ -420,7 +429,7 @@ you'd install any other app. You don't need Xcode or the source code on those Ma
 | 16 GB+ | large-v3-turbo 632 MB | Smart (1.7B, or 4B if the benchmark says so) | Full experience |
 | 32 GB+ | large-v3 or turbo | Smart, bigger LLM option (7–8B) | Best quality |
 
-- Requirements: **Apple Silicon (M1 or newer), macOS 14 Sonoma or newer.** Intel Macs are out of scope
+- Requirements: **Apple Silicon (M1 or newer, or the MacBook Neo's A18 Pro), macOS 14 Sonoma or newer.** Intel Macs are out of scope
   (too slow for this without the Neural Engine).
 - A built-in "Test my Mac" button records a sample sentence and reports latency, so you can pick
   models per machine.
@@ -457,7 +466,7 @@ and (if you have a paid account) notarizes it. You build on this Mac, then insta
 | Clipboard restore races with slow apps | Restore after ~250 ms delay; configurable; AX insertion fallback |
 | LLM rewrites too much or "answers" the text | Strict prompt + length/language guardrails + timeout fallback |
 | Mixed-language accuracy lower than Wispr's cloud models | Measure on eval set; dictionary + prompt biasing; fine-tuning later |
-| Eval set too small and one-speaker (30 clips, owner only), so decisions overfit one voice | Grow the set before v0.3 decisions: more conditions, other speakers, public datasets (§5) |
+| Eval set too small and one-speaker (30 clips, owner only), so decisions overfit one voice | Grow the set before those decisions: more conditions, other speakers, public datasets (§5) |
 | Permissions reset after rebuilds/updates | Stable signing identity from day one |
 | Too slow on a smaller Mac (8 GB) | Hardware-based model auto-pick + "Test my Mac" latency check |
 | First run is slow (model compile/download) | Download + warm-up during onboarding, with a progress bar |
