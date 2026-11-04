@@ -348,6 +348,8 @@ Each phase ends with something you can use daily.
 - Per-app cleanup styles; few-shot examples from your history.
 - **Done when:** names and jargon you use often are spelled right without fixing.
 
+- **Status (2026-11-04): planned for v0.3** in `docs/plans/v0.3.md`, not started.
+
 ### Phase 6 — Later / optional
 - "Command mode": select text, hold a different key, say "make this more formal" / "영어로 번역해줘".
 - Opt-in audio saving + LoRA fine-tuning of Whisper on your voice.
