@@ -32,8 +32,8 @@ final class DictationController: ObservableObject {
     /// Keep recording this long after release, so last syllables survive.
     static let tailSeconds = 0.2
     /// Recording limit, in every mode.
-    static let limitWarningSeconds: TimeInterval = 540
-    static let limitSeconds: TimeInterval = 600
+    static let limitWarningSeconds: TimeInterval = 240
+    static let limitSeconds: TimeInterval = 300
     static let pruneIntervalSeconds: TimeInterval = 86_400
 
     /// Whether the speech model can be used, apart from anything a single dictation does.
@@ -304,15 +304,23 @@ final class DictationController: ObservableObject {
 
     private func startLimitTimer() {
         limitTask?.cancel()
+        let started = Date()
         limitTask = Task {
-            try? await Task.sleep(for: .seconds(Self.limitWarningSeconds))
+            await Self.waitUntil(started.addingTimeInterval(Self.limitWarningSeconds))
             guard !Task.isCancelled else { return }
             hud.show(note: "1 minute left")
-            try? await Task.sleep(for: .seconds(Self.limitSeconds - Self.limitWarningSeconds))
+            await Self.waitUntil(started.addingTimeInterval(Self.limitSeconds))
             guard !Task.isCancelled, isRecording else { return }
             handsFree = false
-            hud.show(note: "10 minute limit reached")
+            hud.show(note: "5 minute limit reached")
             finish()
+        }
+    }
+
+    /// One long sleep ran about 6% late in a 10-minute recording, so check the clock every second.
+    private static func waitUntil(_ deadline: Date) async {
+        while !Task.isCancelled, Date() < deadline {
+            try? await Task.sleep(for: .seconds(1))
         }
     }
 

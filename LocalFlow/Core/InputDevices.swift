@@ -115,6 +115,8 @@ final class InputDevices: ObservableObject {
     private var notedWireless: Set<String> = []
     /// The saved choice already reported as missing.
     private var notedMissing: String?
+    /// The saved choice while it's been away, so its return can be announced once.
+    private var awayChoice: String?
 
     private init() {
         refresh()
@@ -141,6 +143,13 @@ final class InputDevices: ObservableObject {
             notedMissing = chosen
             return "Selected mic not found · using \(started.device.name)"
         }
+        if chosen != awayChoice {
+            awayChoice = nil
+        } else if !started.chosenMissing, chosen != nil {
+            // Plugging a mic back in changes what records with no other sign of it.
+            awayChoice = nil
+            return "Using \(started.device.name)"
+        }
         guard started.device.isBluetooth || started.device.isContinuity,
               notedWireless.insert(started.device.id).inserted else { return nil }
         return started.device.isContinuity ? "iPhone mic: first words may be cut" : "Bluetooth mic: first words may be cut"
@@ -152,5 +161,6 @@ final class InputDevices: ObservableObject {
         let connected = Set(devices.map(\.id))
         notedWireless.formIntersection(connected)
         if let notedMissing, connected.contains(notedMissing) { self.notedMissing = nil }
+        if let chosen = AppSettings.shared.inputDeviceUID, !connected.contains(chosen) { awayChoice = chosen }
     }
 }

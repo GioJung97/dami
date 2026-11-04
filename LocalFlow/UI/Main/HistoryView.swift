@@ -52,6 +52,7 @@ struct HistoryView: View {
                 Group {
                     if let selected {
                         HistoryDetail(dictation: selected)
+                            .id(selected.id)
                     } else {
                         Text(items.isEmpty ? "No dictations" : "Select a dictation")
                             .foregroundStyle(.secondary)
@@ -156,7 +157,7 @@ private struct HistoryDetail: View {
     let dictation: Dictation
     @State private var newTerm = ""
     @State private var addingTerm = false
-    @State private var player: AVAudioPlayer?
+    @StateObject private var playback = AudioPlayback()
 
     var body: some View {
         ScrollView {
@@ -195,7 +196,7 @@ private struct HistoryDetail: View {
                         .buttonStyle(.borderedProminent)
                     Button("Add a word to Dictionary…") { addingTerm = true }
                     if let url = audioURL {
-                        Button(player?.isPlaying == true ? "Stop" : "Play audio") { togglePlayback(url) }
+                        Button(playback.isPlaying ? "Stop" : "Play audio") { playback.toggle(url) }
                     }
                     Spacer()
                     Button("Delete", role: .destructive) { Store.shared.delete(dictation) }
@@ -219,14 +220,36 @@ private struct HistoryDetail: View {
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
-    private func togglePlayback(_ url: URL) {
-        if player?.isPlaying == true {
-            player?.stop()
-            player = nil
+}
+
+/// Plays one saved recording and says when it's over, so the button can follow.
+@MainActor
+private final class AudioPlayback: NSObject, ObservableObject, AVAudioPlayerDelegate {
+    @Published private(set) var isPlaying = false
+    private var player: AVAudioPlayer?
+
+    func toggle(_ url: URL) {
+        if isPlaying {
+            finish()
         } else {
             player = try? AVAudioPlayer(contentsOf: url)
-            player?.play()
+            player?.delegate = self
+            isPlaying = player?.play() ?? false
         }
+    }
+
+    private func finish() {
+        player?.stop()
+        player = nil
+        isPlaying = false
+    }
+
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor in self.finish() }
+    }
+
+    nonisolated func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        Task { @MainActor in self.finish() }
     }
 }
 

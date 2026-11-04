@@ -191,7 +191,7 @@ final class AudioRecorder {
             commonFormat: .pcmFormatFloat32, sampleRate: AudioRecorder.sampleRate, channels: 1, interleaved: false
         )
 
-        /// Hands over the audio, so a finished session doesn't keep up to 10 minutes of it in memory.
+        /// Hands over the audio, so a finished session doesn't keep up to 5 minutes of it in memory.
         func takeSamples() -> [Float] {
             lock.withLock {
                 defer { captured = [] }

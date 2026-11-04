@@ -7,17 +7,23 @@ struct MicrophonePicker: View {
     @ObservedObject private var devices = InputDevices.shared
 
     var body: some View {
-        Picker(label, selection: $settings.inputDeviceUID) {
+        Picker(label, selection: selection) {
             Text(defaultTitle).tag(String?.none)
             Divider()
             ForEach(devices.choices(selected: settings.inputDeviceUID)) { device in
                 Text(device.name).tag(String?.some(device.id))
             }
-            if let selected = settings.inputDeviceUID, !devices.isConnected(selected) {
-                Text("Selected mic (not connected)").tag(String?.some(selected))
-            }
         }
         .pickerStyle(.menu)
+    }
+
+    /// A saved mic that's unplugged shows as the default, which is what records. The choice is kept,
+    /// so plugging it back in returns to it.
+    private var selection: Binding<String?> {
+        Binding(
+            get: { settings.inputDeviceUID.flatMap { devices.isConnected($0) ? $0 : nil } },
+            set: { settings.inputDeviceUID = $0 }
+        )
     }
 
     private var defaultTitle: String {

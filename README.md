@@ -38,7 +38,7 @@ Run the tests with `swift test --package-path LocalFlowCore`.
 
 - Hold **Right ⌘ + Right ⌥** to talk, and let go to paste. The shortcut can be changed in Settings, along with an
   option to double-tap for hands-free.
-- Press Esc to cancel. A recording stops on its own after 10 minutes and is transcribed.
+- Press Esc to cancel. A recording stops on its own after 5 minutes and is transcribed.
 - **Light** mode (the default) removes fillers such as "um" and "음" and some repeated words, keeps a corrected number
   ("3, no, 4" becomes "4"), and applies your Dictionary. **Raw** pastes exactly what Whisper wrote.
 

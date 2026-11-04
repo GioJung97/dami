@@ -7,11 +7,20 @@ struct OnboardingView: View {
     @ObservedObject private var permissions = Permissions.shared
     @ObservedObject private var settings = AppSettings.shared
     @Environment(\.dismissWindow) private var dismissWindow
-    @State private var step = Step.welcome
+    @State private var step: Step
     @State private var practiceText = ""
+    /// Setup is done and a permission was taken away: only ask for that again.
+    private let repairingPermissions: Bool
 
     enum Step: Int, CaseIterable {
         case welcome, language, permissions, model, practice, done
+    }
+
+    init(controller: DictationController) {
+        self.controller = controller
+        let repairing = AppSettings.shared.hasCompletedOnboarding && !Permissions.shared.allGranted
+        repairingPermissions = repairing
+        _step = State(initialValue: repairing ? .permissions : .welcome)
     }
 
     var body: some View {
@@ -30,29 +39,37 @@ struct OnboardingView: View {
             .padding(.horizontal, 48)
             .padding(.top, 40)
 
-            Divider()
-            HStack {
-                HStack(spacing: 6) {
-                    ForEach(Step.allCases, id: \.self) { item in
-                        Circle()
-                            .fill(item == step ? Color.accentColor : Color(nsColor: .separatorColor))
-                            .frame(width: 8, height: 8)
-                    }
-                }
-                .accessibilityLabel("Step \(step.rawValue + 1) of \(Step.allCases.count)")
-                Spacer()
-                if step != .welcome && step != .done {
-                    Button("Back") { move(-1) }
-                }
-                Button(nextTitle) { next() }
-                    .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!canContinue)
-            }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 16)
+            if !repairingPermissions { footer }
         }
         .frame(width: 640, height: 480)
+        .navigationTitle(repairingPermissions ? "LocalFlow Permissions" : "Welcome to LocalFlow")
+        .onChange(of: permissions.allGranted) { _, granted in
+            if repairingPermissions && granted { dismissWindow(id: WindowID.onboarding) }
+        }
+    }
+
+    @ViewBuilder private var footer: some View {
+        Divider()
+        HStack {
+            HStack(spacing: 6) {
+                ForEach(Step.allCases, id: \.self) { item in
+                    Circle()
+                        .fill(item == step ? Color.accentColor : Color(nsColor: .separatorColor))
+                        .frame(width: 8, height: 8)
+                }
+            }
+            .accessibilityLabel("Step \(step.rawValue + 1) of \(Step.allCases.count)")
+            Spacer()
+            if step != .welcome && step != .done {
+                Button("Back") { move(-1) }
+            }
+            Button(nextTitle) { next() }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .disabled(!canContinue)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 16)
     }
 
     // MARK: Steps
@@ -81,7 +98,11 @@ struct OnboardingView: View {
 
     private var permissionsStep: some View {
         VStack(alignment: .leading, spacing: 16) {
-            title("Three permissions", "macOS asks you to allow each one. This window updates on its own.")
+            if repairingPermissions {
+                title("Permission needed", "LocalFlow can't work without these. This window closes once they're all allowed.")
+            } else {
+                title("Three permissions", "macOS asks you to allow each one. This window updates on its own.")
+            }
             VStack(spacing: 0) {
                 permissionRow("Microphone", "To hear you while you hold the shortcut.", permissions.microphone) {
                     permissions.requestMicrophone()

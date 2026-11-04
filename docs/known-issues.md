@@ -41,3 +41,17 @@ on the later list in `docs/plans/v0.2.md`.
 In terminals such as cmux, spacing is a guess from the previous dictation: same app, within 2 minutes, no key pressed since. A
 longer pause can join sentences, and moving the cursor with the mouse alone can add an extra space. If the 2 minutes is too short
 in practice, it's `previousDictationWindow` in `InsertionSpacing`.
+
+## Very short dictations
+
+The owner reports that very short speech is often recognized poorly (2026-11-04). Not investigated or measured yet, and to be
+looked at on its own later. Starting points, none confirmed: presses under 0.3 s are dropped as accidental, the mic takes
+0.13–0.18 s to start so the first sound may be cut, the hallucination filter removes some short outputs, and Whisper has little
+context to work with. A short Korean test clip also returned no words on its first run in M7.
+
+## Made-up text during long pauses
+
+In a 10:39 hands-free recording where the owner spoke a few words, waited and spoke again, text that wasn't said appeared in the
+result (2026-11-04). The owner spoke only a few words in that time and considers this expected, not a bug: not investigated, and
+to be reopened only if it shows up in real use. The hallucination filter only checks a whole output, so it can't remove a made-up
+part inside real speech.

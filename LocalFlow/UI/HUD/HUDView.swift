@@ -39,10 +39,9 @@ struct HUDView: View {
                 pill {
                     Circle().fill(Color(red: 1, green: 0.27, blue: 0.23)).frame(width: 7, height: 7)
                     LevelBars(levels: controller.levels)
+                    ElapsedTime(since: controller.recordingStartedAt)
                     if handsFree {
                         Text("Tap to stop").font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.85))
-                    } else {
-                        ElapsedTime(since: controller.recordingStartedAt)
                     }
                 }
             case .transcribing(let waiting):
