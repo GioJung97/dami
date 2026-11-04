@@ -132,8 +132,13 @@ final class DictationProcessor {
         let result = transcribed.result
         log.info("[\(result.language, privacy: .public)] \(String(format: "%.1f", job.seconds))s audio → \(String(format: "%.2f", transcribed.latency))s")
 
-        guard !HallucinationFilter.isHallucination(result.text),
-              !PromptLeak.isLeak(output: result.text, prompt: result.prompt, vocabulary: result.promptVocabulary) else {
+        if HallucinationFilter.isHallucination(result.text) {
+            Self.countDrop(.hallucination, audioSeconds: job.seconds)
+            onOutcome?(.noSpeech)
+            return
+        }
+        if PromptLeak.isLeak(output: result.text, prompt: result.prompt, vocabulary: result.promptVocabulary) {
+            Self.countDrop(.promptEcho, audioSeconds: job.seconds)
             onOutcome?(.noSpeech)
             return
         }
@@ -142,6 +147,7 @@ final class DictationProcessor {
         )
         // Nothing but fillers.
         guard !processed.final.isEmpty else {
+            Self.countDrop(.onlyFillers, audioSeconds: job.seconds)
             onOutcome?(.noSpeech)
             return
         }
@@ -171,9 +177,17 @@ final class DictationProcessor {
         }
     }
 
+    /// Numbers only, read with `defaults read com.localflow.app dropCounts`. See `DropStats`.
+    static func countDrop(_ reason: DropStats.Reason, audioSeconds: Double) {
+        let defaults = UserDefaults.standard
+        let counts = defaults.dictionary(forKey: "dropCounts") as? [String: Int] ?? [:]
+        defaults.set(DropStats.adding(reason, audioSeconds: audioSeconds, to: counts), forKey: "dropCounts")
+    }
+
     private func fail(_ job: Job, _ error: Error) {
         guard !(error is CancellationError) else { return }
         log.error("Dictation failed: \(error.localizedDescription, privacy: .public)")
+        Self.countDrop(.failed, audioSeconds: job.seconds)
         let dictation = FailedDictation(job: job, message: error is TimedOut ? "Took too long" : "Couldn't transcribe")
         failed = Array((failed + [dictation]).suffix(Self.maxFailed))
         onOutcome?(.failed(dictation))

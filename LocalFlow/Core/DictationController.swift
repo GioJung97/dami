@@ -392,6 +392,7 @@ final class DictationController: ObservableObject {
         guard !AudioRecorder.isSilent(audio) else {
             refreshState()
             silentRecordings += 1
+            DictationProcessor.countDrop(.silent, audioSeconds: seconds)
             let text = microphoneName.map { "No sound heard · Mic: \($0)" } ?? "No sound heard"
             if silentRecordings >= 2 {
                 report(text, actionTitle: "Check microphone") { Navigation.shared.openSettings(tab: "General") }
