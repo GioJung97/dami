@@ -47,7 +47,8 @@ in practice, it's `previousDictationWindow` in `InsertionSpacing`.
 The owner reports that very short speech is often recognized poorly (2026-11-04). Not investigated or measured yet, and to be
 looked at on its own later. Starting points, none confirmed: presses under 0.3 s are dropped as accidental, the mic takes
 0.13–0.18 s to start so the first sound may be cut, the hallucination filter removes some short outputs, and Whisper has little
-context to work with. A short Korean test clip also returned no words on its first run in M7.
+context to work with. A short Korean test clip also returned no words on its first run in M7. Of 158 saved dictations, none is
+under 1 s of audio, but outputs treated as no speech aren't saved, so this doesn't give a failure rate.
 
 ## Made-up text during long pauses
 
@@ -55,3 +56,8 @@ In a 10:39 hands-free recording where the owner spoke a few words, waited and sp
 result (2026-11-04). The owner spoke only a few words in that time and considers this expected, not a bug: not investigated, and
 to be reopened only if it shows up in real use. The hallucination filter only checks a whole output, so it can't remove a made-up
 part inside real speech.
+
+## Long recordings may not capture everything
+
+In a 5:00 hands-free test the owner felt not all of the speech came through (2026-11-04). That test was about the time limit, so
+accuracy wasn't checked and nothing was measured. Worth a look when accuracy is measured on longer audio.
