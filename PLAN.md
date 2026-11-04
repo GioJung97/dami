@@ -6,6 +6,43 @@ Nothing leaves your Mac. No subscription.
 
 ---
 
+## Roadmap
+
+Updated 2026-11-04. Through v0.3 is planned work. Everything after it is a rough direction, not a commitment. Each version has one
+goal, and its details live in `docs/plans/`.
+
+| Version | Goal | Done when | State |
+|---|---|---|---|
+| v0.1 | It works: hold a key, speak, paste | Usable every day | Done, on `main` |
+| v0.2 | It can be trusted all day | Must-test list done, a week of use without losing speech silently, owner says merge (`docs/plans/v0.2.md`) | Week of use, until 2026-11-11 at the earliest |
+| v0.3 | It starts learning from fixes, and the LLM question gets answered | `docs/plans/v0.3.md` §6 | Planned, not started |
+| Better text *(undecided)* | Output needs fewer fixes | Depends on v0.3's measurements: an LLM if justified, or accuracy and spacing work instead | No plan yet |
+| Public release *(undecided)* | Other people can install and trust it | See below | No plan yet |
+
+**Long-term goal:** accuracy improves for each person the more they use it, with everything staying on their Mac.
+
+**Public release conditions (proposed, not decided):**
+1. v0.3 is finished.
+2. 2–5 other people have used it with consent, without losing speech, using a diagnostics export with no text in it.
+3. It's published with fresh git history, so personal notes and benchmarks in `docs/` and `bench/` aren't exposed.
+4. There's a signed, notarized `.dmg`.
+5. Known limits are written down honestly.
+
+**Not scheduled.** The one list of ideas with no version yet. Pick from here when planning a version.
+
+| Area | Items |
+|---|---|
+| Accuracy | Mixed-language prompt and decoder changes, Korean terms in the prompt, a small spacing corrector, Whisper fine-tuning |
+| Recording | Hands-free stops itself after a long silence (owner's idea, low priority), streaming while speaking, Bluetooth microphone reliability, microphone ranking |
+| Models | A lighter and a heavier speech model in Settings |
+| Learning | Showing what was learned, highlights on low-probability words, re-dictation detection, merged Dictionary |
+| Pasting | Protection when focus changes during processing, checks in apps not yet tried (Safari, Electron, Word) |
+| Features | Command mode, per-app modes |
+| Across Macs | Dictionary export and import, backups, sync |
+| Project | CI |
+
+---
+
 ## 1. Goals and non-goals
 
 **Goals**
@@ -276,7 +313,8 @@ Models are direct calls for now, not behind protocols. Add a seam when a second 
 
 ## 7. Build phases
 
-Each phase ends with something you can use daily.
+Each phase ends with something you can use daily. These are the original phases. Since v0.2, work is planned by version: see
+the Roadmap at the top.
 
 ### Phase 0 — Setup and model benchmark (½ day)
 - Install Xcode (not installed on this Mac yet) and Homebrew tools (`whisperkit-cli`).
