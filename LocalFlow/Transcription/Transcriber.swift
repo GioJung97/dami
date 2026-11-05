@@ -185,6 +185,16 @@ actor Transcriber {
             run = try await self.run(whisper, audio, prompt: nil, language: language, wordTimestamps: options.wordTimestamps)
             prompt = nil
         }
+        // A very short clip with the prompt can come back empty: Whisper ends at once. Retry once without it, with a little silence
+        // around the speech, which brought all five empty clips back in testing (2026-11-05).
+        if run.text.isEmpty, prompt != nil || audio.count < Self.shortClipSamples {
+            let padding = [Float](repeating: 0, count: Self.paddingSamples)
+            var retry = try await self.run(whisper, padding + audio + padding, prompt: nil, language: language, wordTimestamps: options.wordTimestamps)
+            let offset = Float(Self.paddingSamples) / Float(AudioRecorder.sampleRate)
+            retry.words = retry.words.map { Word(word: $0.word, start: max(0, $0.start - offset), end: max(0, $0.end - offset), probability: $0.probability) }
+            run = retry
+            prompt = nil
+        }
         return Result(
             text: run.text,
             language: language ?? run.language ?? "en",
@@ -193,6 +203,11 @@ actor Transcriber {
             words: run.words
         )
     }
+
+    /// Half a second of silence on each side for the empty-result retry.
+    private static let paddingSamples = 8_000
+    /// Under this, a retry also runs when there was no prompt, since short clips are the ones that come back empty.
+    private static let shortClipSamples = 48_000
 
     /// Whisper's own detection picks from all 99 languages, so Korean is sometimes heard as Japanese.
     /// This runs the same single decoder step but only compares the user's languages.
