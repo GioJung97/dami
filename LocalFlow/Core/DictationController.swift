@@ -183,6 +183,7 @@ final class DictationController: ObservableObject {
             } catch {
                 setModelStatus(.failed(error as? ModelProblem ?? .loadFailed))
                 log.error("Model unavailable: \(error.localizedDescription, privacy: .public)")
+                HealthCounter.count(.modelUnavailable)
             }
             // Dictations made while it loaded are moving now, or just failed.
             if !isRecording, isWorking { showWork() }
@@ -301,6 +302,7 @@ final class DictationController: ObservableObject {
             if let note = InputDevices.shared.note(for: started, chosen: chosen) { hud.show(note: note) }
         case .failure(let error):
             log.error("Recording failed: \(error.localizedDescription, privacy: .public)")
+            HealthCounter.count(.recordingFailed)
             handsFree = false
             discardRecording()
             if case AudioRecorder.RecorderError.permissionMissing = error {

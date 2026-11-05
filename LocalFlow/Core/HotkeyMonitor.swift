@@ -88,6 +88,7 @@ final class HotkeyMonitor {
     /// Runs on the tap's thread. Returns true to swallow the event.
     private func handle(type: CGEventType, event: CGEvent) -> Bool {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            HealthCounter.count(type == .tapDisabledByTimeout ? .tapTimedOut : .tapDisabledByInput)
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
             let action = machine.withLock { machine in
                 machine.tapRestored(isStillHeld: Self.isHeldNow(machine.shortcut))

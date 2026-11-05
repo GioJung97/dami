@@ -167,6 +167,7 @@ final class AudioRecorder {
             }
         }
         log.notice("Mic lost while recording")
+        HealthCounter.count(.micLost)
         DispatchQueue.main.async { [self] in
             if self.session === session { onDeviceLost?() }
         }

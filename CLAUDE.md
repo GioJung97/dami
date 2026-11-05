@@ -36,16 +36,16 @@ speak English plus one other language (Korean is the tested one) or both mixed, 
   `git fetch && git switch v0.3`.
 - **Stability is checked continuously, not over a fixed period** (owner, 2026-11-04). Rare problems may not appear in any given week,
   so this runs alongside new work. The owner reports what they notice. **At the end of each milestone, an agent checks what the owner
-  can't see:** `defaults read com.localflow.app dropCounts`, error-level entries in the app's log, and crash reports, then reports
-  anything unexplained. Text and key identity are never read. Unified logs here only reach back about a day, so a clean log is weak
-  evidence.
+  can't see:** `scripts/health-check.sh` (failure and drop counters, app errors, crash reports, database health), then reports anything
+  unexplained. It prints no dictated text or key identity. Unified logs here only reach back about a day, so the counters are the record
+  that lasts. A sent ⌘V still can't confirm text arrived.
 - A bug that loses speech, pastes wrongly or breaks trust stops other work until it's fixed.
 - **Don't merge a version into `main`, and don't suggest it as the next step,** until both are true:
   1. Every done condition in that version's plan is checked, or recorded as waived and unverified.
   2. The owner says to merge.
 - Then: tick the plan's list, add a dated Status line to `PLAN.md` §7, and merge.
-- Ask before any push or merge. Nothing gets published without the owner's say. The repo is private, and `docs/` and `bench/`
-  hold personal notes to review before it goes public.
+- Ask before any push or merge. The repo is public (open source), so a push publishes. Notes, plans and benchmarks are fine to
+  publish (owner, 2026-11-05). Never commit credentials: certificates, keys, tokens, passwords.
 
 ## Working rules
 

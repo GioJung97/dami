@@ -121,6 +121,7 @@ final class Store: ObservableObject {
         } catch {
             // A broken database must not stop dictation. Fall back to memory for this session.
             NSLog("LocalFlow: database unavailable, using in-memory store: \(error.localizedDescription)")
+            HealthCounter.count(.databaseUnavailable)
             let queue = try! DatabaseQueue()
             try! migrator.migrate(queue)
             return (queue, true)
@@ -195,7 +196,11 @@ final class Store: ObservableObject {
     @discardableResult
     func add(_ dictation: Dictation) -> Dictation {
         var row = dictation
-        try? db.write { db in try row.insert(db) }
+        do {
+            try db.write { db in try row.insert(db) }
+        } catch {
+            HealthCounter.count(.historySaveFailed)
+        }
         dictations = Array(([row] + dictations).prefix(Self.recentLimit))
         revision += 1
         return row
