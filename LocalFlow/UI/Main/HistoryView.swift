@@ -5,6 +5,9 @@ import SwiftUI
 struct HistoryView: View {
     @ObservedObject private var store = Store.shared
     @ObservedObject private var settings = AppSettings.shared
+    @ObservedObject private var navigation = Navigation.shared
+    /// Opened from the menu's pencil: show this dictation's fix box.
+    @State private var fixing: Dictation.ID?
     @State private var search = ""
     @State private var filter = "ALL"
     @State private var selection: Dictation.ID?
@@ -51,7 +54,7 @@ struct HistoryView: View {
 
                 Group {
                     if let selected {
-                        HistoryDetail(dictation: selected)
+                        HistoryDetail(dictation: selected, startFixing: fixing == selected.id)
                             .id(selected.id)
                     } else {
                         Text(items.isEmpty ? "No dictations" : "Select a dictation")
@@ -66,7 +69,10 @@ struct HistoryView: View {
         .onAppear {
             reload()
             if selection == nil { selection = items.first?.id }
+            openRequestedFix()
         }
+        .onChange(of: navigation.requestedFix) { openRequestedFix() }
+        .onChange(of: selection) { if selection != fixing { fixing = nil } }
         .onChange(of: search) { reload() }
         .onChange(of: filter) { reload() }
         .onChange(of: store.revision) { reload() }
@@ -91,6 +97,17 @@ struct HistoryView: View {
             language = filter == "EN" ? .english : .all
         }
         return Store.HistoryQuery(search: search, language: language)
+    }
+
+    /// Shows everything so the requested dictation is in the list, then selects it with the fix box open.
+    private func openRequestedFix() {
+        guard let id = navigation.requestedFix else { return }
+        navigation.requestedFix = nil
+        search = ""
+        filter = "ALL"
+        reload()
+        fixing = id
+        selection = id
     }
 
     /// Queries again, keeping as many rows as are showing so the list doesn't jump.
@@ -147,7 +164,7 @@ private struct HistoryRow: View {
             }
             .font(.system(size: 11))
             .foregroundStyle(.secondary)
-            Text(dictation.finalText).font(.system(size: 13)).lineLimit(2)
+            Text(dictation.displayText).font(.system(size: 13)).lineLimit(2)
         }
         .padding(.vertical, 4)
     }
@@ -157,7 +174,16 @@ private struct HistoryDetail: View {
     let dictation: Dictation
     @State private var newTerm = ""
     @State private var addingTerm = false
+    @State private var fixing: Bool
+    @State private var draft: String
+    @FocusState private var draftFocused: Bool
     @StateObject private var playback = AudioPlayback()
+
+    init(dictation: Dictation, startFixing: Bool) {
+        self.dictation = dictation
+        _fixing = State(initialValue: startFixing)
+        _draft = State(initialValue: dictation.displayText)
+    }
 
     var body: some View {
         ScrollView {
@@ -173,9 +199,22 @@ private struct HistoryDetail: View {
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("PASTED TEXT").font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
-                    Text(dictation.finalText).font(.system(size: 16)).textSelection(.enabled)
+                if fixing {
+                    fixBox
+                } else if let fixed = dictation.fixedText {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("FIXED TEXT").font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
+                        Text(fixed).font(.system(size: 16)).textSelection(.enabled)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("PASTED TEXT").font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
+                        Text(dictation.finalText).font(.system(size: 12)).foregroundStyle(.secondary).textSelection(.enabled)
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("PASTED TEXT").font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
+                        Text(dictation.finalText).font(.system(size: 16)).textSelection(.enabled)
+                    }
                 }
 
                 if dictation.rawText != dictation.finalText {
@@ -192,14 +231,19 @@ private struct HistoryDetail: View {
                 }
 
                 HStack {
-                    Button("Copy") { TextInserter.copy(dictation.finalText) }
+                    Button("Copy") { TextInserter.copy(dictation.displayText) }
                         .buttonStyle(.borderedProminent)
+                    Button("Fix…") { startFixing() }
+                        .disabled(fixing)
                     Button("Add a word to Dictionary…") { addingTerm = true }
                     if let url = audioURL {
                         Button(playback.isPlaying ? "Stop" : "Play audio") { playback.toggle(url) }
                     }
                     Spacer()
                     Button("Delete", role: .destructive) { Store.shared.delete(dictation) }
+                }
+                if audioURL != nil {
+                    confirmRow
                 }
                 Text(String(format: "Transcribed in %.2f s", dictation.latencySeconds))
                     .font(.system(size: 11))
@@ -212,6 +256,65 @@ private struct HistoryDetail: View {
         .sheet(isPresented: $addingTerm) {
             AddTermSheet(term: $newTerm) { Store.shared.addTerm(newTerm); newTerm = "" }
         }
+        .onAppear { if fixing { draftFocused = true } }
+    }
+
+    private var fixBox: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("FIX THE TEXT").font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
+            TextEditor(text: $draft)
+                .font(.system(size: 15))
+                .frame(minHeight: 80, maxHeight: 200)
+                .scrollContentBackground(.hidden)
+                .padding(6)
+                .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .textBackgroundColor)))
+                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(nsColor: .separatorColor)))
+                .focused($draftFocused)
+            HStack {
+                Text("What was pasted stays as it was. LocalFlow keeps this fix to learn from.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Cancel") { fixing = false }
+                    .keyboardShortcut(.cancelAction)
+                Button("Save") {
+                    Store.shared.fix(dictation, to: draft)
+                    fixing = false
+                }
+                .keyboardShortcut(.return, modifiers: .command)
+                .buttonStyle(.borderedProminent)
+                .disabled(FixText.normalized(draft, replacing: dictation.displayText) == nil)
+            }
+        }
+    }
+
+    /// "This is what I said": only with saved audio, since the mark exists to keep that pair.
+    private var confirmRow: some View {
+        HStack(spacing: 8) {
+            if dictation.isConfirmed {
+                Label("Marked as what you said", systemImage: "checkmark.seal.fill")
+                    .foregroundStyle(.green)
+                    .font(.system(size: 12, weight: .semibold))
+                Text("Kept with its audio until you unmark or delete it.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Unmark") { Store.shared.setConfirmed(dictation, false) }
+            } else {
+                Button("This is what I said") { Store.shared.setConfirmed(dictation, true) }
+                    .help("Marks this text as exactly what you said, and keeps the audio with it until you unmark it.")
+                Text("Fix the text first if it's wrong.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+        }
+    }
+
+    private func startFixing() {
+        draft = dictation.displayText
+        fixing = true
+        draftFocused = true
     }
 
     private var audioURL: URL? {

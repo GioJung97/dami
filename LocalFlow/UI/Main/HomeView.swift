@@ -59,7 +59,7 @@ struct HomeView: View {
                                 }
                                 .font(.system(size: 11))
                                 .foregroundStyle(.secondary)
-                                Text(dictation.finalText).font(.system(size: 13)).lineLimit(1)
+                                Text(dictation.displayText).font(.system(size: 13)).lineLimit(1)
                             }
                             .padding(.top, 6)
                         }

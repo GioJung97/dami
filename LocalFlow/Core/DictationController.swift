@@ -136,6 +136,16 @@ final class DictationController: ObservableObject {
             .sink { [weak self] in self?.objectWillChange.send() }
             .store(in: &cancellables)
 
+        // A fix in History changes what Recent shows and pastes.
+        store.$revision
+            .sink { [weak self] _ in
+                guard let self else { return }
+                recent = recent.map { item in
+                    self.store.dictations.first { $0.id == item.dictation.id && $0.id != nil }.map(RecentDictation.init) ?? item
+                }
+            }
+            .store(in: &cancellables)
+
         startPruning()
         recent = store.dictations.prefix(3).map(RecentDictation.init)
         startHotkeyWhenPermitted()
@@ -204,7 +214,7 @@ final class DictationController: ObservableObject {
         Task {
             // Give the menu or window time to close so focus returns to the previous app.
             try? await Task.sleep(for: .milliseconds(150))
-            if case .copied(let reason) = await TextInserter.insert(dictation.finalText, language: dictation.language) {
+            if case .copied(let reason) = await TextInserter.insert(dictation.displayText, language: dictation.language) {
                 hud.show(.copied(reason.message))
             }
         }

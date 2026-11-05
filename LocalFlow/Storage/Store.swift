@@ -34,20 +34,46 @@ struct Dictation: Codable, Identifiable, FetchableRecord, MutablePersistableReco
     /// JSON array of words with timing and confidence, if measured.
     var wordsJSON: String? = nil
 
+    // Since v0.3.
+    /// The latest fix the user made in History. The pasted text stays in `finalText`.
+    var fixedText: String? = nil
+    /// When the user marked the text as what they said. A marked dictation keeps its audio until it's unmarked or deleted.
+    var confirmedAt: Date? = nil
+    /// The text that was marked as what they said.
+    var confirmedText: String? = nil
+
     static let databaseTableName = "dictation"
 
     mutating func didInsert(_ inserted: InsertionSuccess) { id = inserted.rowID }
 
     var wordCount: Int { finalText.split(whereSeparator: \.isWhitespace).count }
 
+    /// What to show, copy and paste again: the fix if there is one.
+    var displayText: String { fixedText ?? finalText }
+    var isConfirmed: Bool { confirmedAt != nil }
+
     /// EN, the other language's code (e.g. KO), or MIXED when a dictation in a non-Latin-script
     /// language also has English words. Mixing can't be told apart for Latin-script languages.
     var languageLabel: String {
         guard language != "en" else { return "EN" }
         let hasScript = SpokenLanguage.find(language)?.script != nil
-        if hasScript, finalText.range(of: "[A-Za-z]{2,}", options: .regularExpression) != nil { return "MIXED" }
+        if hasScript, displayText.range(of: "[A-Za-z]{2,}", options: .regularExpression) != nil { return "MIXED" }
         return language.uppercased()
     }
+}
+
+/// One fix to a dictation's text: what it was before, and what it became.
+struct DictationEdit: Codable, Identifiable, FetchableRecord, MutablePersistableRecord, Equatable {
+    var id: Int64?
+    var dictationId: Int64
+    var createdAt: Date
+    /// "history" for a fix typed in History, "auto" for one seen in the app it was pasted into.
+    var source: String
+    var beforeText: String
+    var afterText: String
+
+    static let databaseTableName = "edit"
+    mutating func didInsert(_ inserted: InsertionSuccess) { id = inserted.rowID }
 }
 
 /// A word Whisper should spell your way. English terms are fed to Whisper as a hint.
@@ -91,6 +117,8 @@ final class Store: ObservableObject {
     private let directory: URL
     /// The database couldn't open. Everything on disk looks orphaned then, so nothing there gets deleted.
     private let isInMemoryFallback: Bool
+    /// Why history isn't being saved this session, for the menu. Nil when the database is fine.
+    let unavailableReason: String?
     private var cachedStats: (day: Date, revision: Int, stats: DayStats)?
 
     /// Bumped whenever dictations change, so History can query again.
@@ -108,24 +136,43 @@ final class Store: ObservableObject {
         let directory = directory ?? Self.supportDirectory
         self.directory = directory
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        (db, isInMemoryFallback) = Self.openDatabase(in: directory)
+        let opened = Self.openDatabase(in: directory)
+        db = opened.queue
+        isInMemoryFallback = opened.failure != nil
+        unavailableReason = opened.failure
         reloadDictionary()
         reloadRecent()
     }
 
-    private static func openDatabase(in directory: URL) -> (DatabaseQueue, isInMemoryFallback: Bool) {
+    static let databaseName = "LocalFlow.sqlite"
+    /// A copy taken just before a migration changes the file. Replaced by the next migration's copy.
+    static let backupName = "LocalFlow.backup.sqlite"
+
+    private static func openDatabase(in directory: URL) -> (queue: DatabaseQueue, failure: String?) {
         do {
-            let queue = try DatabaseQueue(path: directory.appendingPathComponent("LocalFlow.sqlite").path)
+            let queue = try DatabaseQueue(path: directory.appendingPathComponent(databaseName).path)
+            try backUpBeforeMigrating(queue, in: directory)
             try migrator.migrate(queue)
-            return (queue, false)
+            return (queue, nil)
         } catch {
-            // A broken database must not stop dictation. Fall back to memory for this session.
+            // A broken database must not stop dictation. Fall back to memory for this session, and say so in the menu.
             NSLog("LocalFlow: database unavailable, using in-memory store: \(error.localizedDescription)")
             HealthCounter.count(.databaseUnavailable)
             let queue = try! DatabaseQueue()
             try! migrator.migrate(queue)
-            return (queue, true)
+            return (queue, error.localizedDescription)
         }
+    }
+
+    /// Data from before a migration can't be collected again, so a migration only runs once there's a copy. A failed copy stops it.
+    private static func backUpBeforeMigrating(_ queue: DatabaseQueue, in directory: URL) throws {
+        let needsCopy = try queue.read { db in try db.tableExists("dictation") && !migrator.hasCompletedMigrations(db) }
+        guard needsCopy else { return }
+        let url = directory.appendingPathComponent(backupName)
+        try? FileManager.default.removeItem(at: url)
+        let copy = try DatabaseQueue(path: url.path)
+        try queue.backup(to: copy)
+        try copy.close()
     }
 
     private static var migrator: DatabaseMigrator {
@@ -168,6 +215,30 @@ final class Store: ObservableObject {
                 t.add(column: "wordsJSON", .text)
             }
         }
+        migrator.registerMigration("v3") { db in
+            try db.alter(table: "dictation") { t in
+                t.add(column: "fixedText", .text)
+                t.add(column: "confirmedAt", .datetime)
+                t.add(column: "confirmedText", .text)
+            }
+            try db.create(table: "edit") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.belongsTo("dictation", onDelete: .cascade).notNull()
+                t.column("createdAt", .datetime).notNull()
+                t.column("source", .text).notNull()
+                t.column("beforeText", .text).notNull()
+                t.column("afterText", .text).notNull()
+            }
+            // One row per paste for automatic capture (M2): how watching it ended. Numbers and categories only, no text.
+            try db.create(table: "pasteWatch") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.belongsTo("dictation", onDelete: .cascade).notNull()
+                t.column("createdAt", .datetime).notNull()
+                t.column("outcome", .text).notNull()
+                t.column("endedBy", .text)
+                t.column("secondsToEdit", .double)
+            }
+        }
         return migrator
     }
 
@@ -206,6 +277,51 @@ final class Store: ObservableObject {
         return row
     }
 
+    /// Saves a fix typed in History. Returns false if there was nothing to save or it couldn't be saved.
+    @discardableResult
+    func fix(_ dictation: Dictation, to text: String, source: String = "history") -> Bool {
+        guard let id = dictation.id, let fixed = FixText.normalized(text, replacing: dictation.displayText) else { return false }
+        do {
+            try db.write { db in
+                var edit = DictationEdit(
+                    dictationId: id, createdAt: Date(), source: source, beforeText: dictation.displayText, afterText: fixed
+                )
+                try edit.insert(db)
+                // The mark was for the old text.
+                try db.execute(
+                    sql: "UPDATE dictation SET fixedText = ?, confirmedAt = NULL, confirmedText = NULL WHERE id = ?",
+                    arguments: [fixed, id]
+                )
+            }
+        } catch {
+            HealthCounter.count(.historySaveFailed)
+            return false
+        }
+        reloadRecent()
+        return true
+    }
+
+    /// "This is what I said": marks the text shown now as a correct transcript, which keeps the audio past retention.
+    func setConfirmed(_ dictation: Dictation, _ confirmed: Bool) {
+        guard let id = dictation.id else { return }
+        do {
+            try db.write { db in
+                try db.execute(
+                    sql: "UPDATE dictation SET confirmedAt = ?, confirmedText = ? WHERE id = ?",
+                    arguments: [confirmed ? Date() : nil, confirmed ? dictation.displayText : nil, id]
+                )
+            }
+        } catch {
+            HealthCounter.count(.historySaveFailed)
+        }
+        reloadRecent()
+    }
+
+    func edits(for dictation: Dictation) -> [DictationEdit] {
+        guard let id = dictation.id else { return [] }
+        return (try? db.read { try DictationEdit.filter(Column("dictationId") == id).order(Column("createdAt")).fetchAll($0) }) ?? []
+    }
+
     func delete(_ dictation: Dictation) {
         guard let id = dictation.id else { return }
         _ = try? db.write { db in try Dictation.deleteOne(db, id: id) }
@@ -222,6 +338,7 @@ final class Store: ObservableObject {
 
     /// Applies the retention settings. Text: 0 = keep forever, -1 = keep nothing, N = keep N days.
     /// Audio follows its own number of days and goes when its row goes. Files without a row are removed.
+    /// A dictation marked "This is what I said" keeps its text and audio until it's unmarked or deleted.
     func prune(retentionDays: Int, audioRetentionDays: Int, now: Date = Date()) {
         let textCutoff: Date? = switch retentionDays {
         case 0: nil
@@ -230,7 +347,7 @@ final class Store: ObservableObject {
         }
         if let textCutoff {
             _ = try? db.write { db in
-                try Dictation.filter(Column("createdAt") < textCutoff).deleteAll(db)
+                try Dictation.filter(Column("createdAt") < textCutoff && Column("confirmedAt") == nil).deleteAll(db)
             }
         }
         pruneAudio(audioCutoff: now.addingTimeInterval(-Double(audioRetentionDays) * 86_400))
@@ -244,13 +361,13 @@ final class Store: ObservableObject {
         guard !saved.isEmpty else { return }
         // A failed read must not look like "no rows", which would delete every file.
         guard let rows = try? db.read({ db in
-            try Row.fetchAll(db, sql: "SELECT id, createdAt FROM dictation").reduce(into: [Int64: Date]()) { result, row in
-                result[row["id"]] = row["createdAt"]
+            try Row.fetchAll(db, sql: "SELECT id, createdAt, confirmedAt FROM dictation").reduce(into: [Int64: (Date, Bool)]()) { result, row in
+                result[row["id"]] = (row["createdAt"], (row["confirmedAt"] as Date?) != nil)
             }
         }) else { return }
         for file in saved {
             guard let id = Int64(file.deletingPathExtension().lastPathComponent) else { continue }
-            if let createdAt = rows[id], createdAt >= audioCutoff { continue }
+            if let (createdAt, confirmed) = rows[id], confirmed || createdAt >= audioCutoff { continue }
             try? FileManager.default.removeItem(at: file)
         }
     }
@@ -286,7 +403,7 @@ final class Store: ObservableObject {
     func history(_ query: HistoryQuery, limit: Int, offset: Int = 0) -> [Dictation] {
         var clauses: [String] = []
         var arguments: [any DatabaseValueConvertible] = []
-        let hasEnglish = "finalText GLOB '*[A-Za-z][A-Za-z]*'"
+        let hasEnglish = "coalesce(fixedText, finalText) GLOB '*[A-Za-z][A-Za-z]*'"
         switch query.language {
         case .all:
             break
@@ -301,8 +418,8 @@ final class Store: ObservableObject {
         }
         if !query.search.isEmpty {
             let pattern = "%" + Self.escapedForLike(query.search) + "%"
-            clauses.append(#"(finalText LIKE ? ESCAPE '\' OR rawText LIKE ? ESCAPE '\')"#)
-            arguments += [pattern, pattern]
+            clauses.append(#"(finalText LIKE ? ESCAPE '\' OR rawText LIKE ? ESCAPE '\' OR fixedText LIKE ? ESCAPE '\')"#)
+            arguments += [pattern, pattern, pattern]
         }
         let filter = clauses.isEmpty ? "" : "WHERE " + clauses.joined(separator: " AND ")
         let sql = "SELECT * FROM dictation \(filter) ORDER BY createdAt DESC LIMIT ? OFFSET ?"

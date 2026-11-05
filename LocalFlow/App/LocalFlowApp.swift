@@ -56,6 +56,8 @@ final class Navigation: ObservableObject {
     @Published var section: Section = .home
     /// Settings tab to show next, by name.
     @Published var requestedSettingsTab: String?
+    /// A dictation to open in History with its fix box showing.
+    @Published var requestedFix: Int64?
     /// Bumped to open the main window from code that can't reach SwiftUI's `openWindow`.
     @Published private(set) var windowRequests = 0
     /// The same, for the setup window.
@@ -64,6 +66,12 @@ final class Navigation: ObservableObject {
     func openSettings(tab: String) {
         section = .settings
         requestedSettingsTab = tab
+        windowRequests += 1
+    }
+
+    func openHistory(fixing id: Int64) {
+        section = .history
+        requestedFix = id
         windowRequests += 1
     }
 
