@@ -31,8 +31,8 @@ Run the tests with `swift test --package-path LocalFlowCore`.
 | Permission | Why |
 |---|---|
 | Microphone | To hear you while you hold the shortcut |
-| Input Monitoring | To notice the shortcut in any app |
-| Accessibility | To paste with ⌘V, and to read the one character before the cursor when deciding on a space |
+| Input Monitoring | Asked for only if the shortcut doesn't start with Accessibility alone. It wasn't needed on the one Mac tested (macOS 15.3) |
+| Accessibility | To notice the shortcut in any app, to paste with ⌘V, and to read the one character before the cursor when deciding on a space |
 
 ## Using it
 

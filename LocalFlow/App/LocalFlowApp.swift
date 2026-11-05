@@ -58,11 +58,17 @@ final class Navigation: ObservableObject {
     @Published var requestedSettingsTab: String?
     /// Bumped to open the main window from code that can't reach SwiftUI's `openWindow`.
     @Published private(set) var windowRequests = 0
+    /// The same, for the setup window.
+    @Published private(set) var setupWindowRequests = 0
 
     func openSettings(tab: String) {
         section = .settings
         requestedSettingsTab = tab
         windowRequests += 1
+    }
+
+    func openSetup() {
+        setupWindowRequests += 1
     }
 }
 
@@ -78,9 +84,13 @@ private struct MenuBarLabel: View {
                 openWindow(id: WindowID.main)
                 NSApp.activate(ignoringOtherApps: true)
             }
+            .onReceive(Navigation.shared.$setupWindowRequests.dropFirst()) { _ in
+                openWindow(id: WindowID.onboarding)
+                NSApp.activate(ignoringOtherApps: true)
+            }
             .onAppear {
                 DispatchQueue.main.async(execute: Self.openOnRightClick)
-                if !AppSettings.shared.hasCompletedOnboarding || !Permissions.shared.allGranted {
+                if !AppSettings.shared.hasCompletedOnboarding || !controller.permissionsReady {
                     openWindow(id: WindowID.onboarding)
                     NSApp.activate(ignoringOtherApps: true)
                 }

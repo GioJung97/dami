@@ -1,11 +1,15 @@
 import AVFoundation
 import AppKit
 import ApplicationServices
+import os
 
-/// The three macOS permissions LocalFlow needs:
+private let log = Logger(subsystem: "com.localflow.app", category: "permissions")
+
+/// The macOS permissions LocalFlow uses:
 /// - Microphone: record your voice.
-/// - Input Monitoring: notice the hotkey while another app is focused.
-/// - Accessibility: send ⌘V to paste into the focused app.
+/// - Accessibility: notice the hotkey in any app, and send ⌘V to paste into the focused app.
+/// - Input Monitoring: on the one Mac tested (macOS 15.3), Accessibility was enough for the hotkey, and this check turned true along
+///   with it. Asked for only if the hotkey doesn't start, since other macOS versions may differ.
 @MainActor
 final class Permissions: ObservableObject {
     static let shared = Permissions()
@@ -14,9 +18,12 @@ final class Permissions: ObservableObject {
     @Published private(set) var accessibility = false
     @Published private(set) var inputMonitoring = false
 
-    var allGranted: Bool { microphone && accessibility && inputMonitoring }
+    /// The two that are always asked for. Whether everything works also depends on the hotkey: `DictationController.permissionsReady`.
+    var coreGranted: Bool { microphone && accessibility }
 
     private var timer: Timer?
+    private var accessibilityRequested = false
+    private var inputMonitoringRequested = false
 
     private init() {
         refresh()
@@ -43,16 +50,39 @@ final class Permissions: ObservableObject {
         }
     }
 
+    /// The first press shows macOS's own prompt, which also adds LocalFlow to the list in System Settings and has a button to go there.
+    /// macOS may not show it twice, so a later press opens System Settings directly.
     func requestAccessibility() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        if !AXIsProcessTrustedWithOptions(options) {
+        if accessibilityRequested {
             openSettings("Privacy_Accessibility")
+        } else {
+            accessibilityRequested = true
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
         }
     }
 
+    /// Works the same way as `requestAccessibility`.
     func requestInputMonitoring() {
-        if !CGRequestListenEventAccess() {
+        if inputMonitoringRequested {
             openSettings("Privacy_ListenEvent")
+        } else {
+            inputMonitoringRequested = true
+            _ = CGRequestListenEventAccess()
+        }
+    }
+
+    /// macOS can hold a new permission back from an app until it restarts, and offers Quit & Reopen for that. This is for someone who
+    /// answered Later. The new copy starts after a pause, so two copies never run at once.
+    func quitAndReopen() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", "sleep 1; /usr/bin/open \"$0\"", Bundle.main.bundlePath]
+        do {
+            try process.run()
+            NSApp.terminate(nil)
+        } catch {
+            log.error("Reopen failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 

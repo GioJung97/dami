@@ -61,3 +61,37 @@ part inside real speech.
 
 In a 5:00 hands-free test the owner felt not all of the speech came through (2026-11-04). That test was about the time limit, so
 accuracy wasn't checked and nothing was measured. Worth a look when accuracy is measured on longer audio.
+
+## First-run setup: what's fixed and what's still open
+
+Another user tried a build from source on their own Mac (2026-11-04) and reported these. Fixed on branch `setup-fixes`, and the owner
+tested a full first run on this Mac (2026-11-05, macOS 15.3). Another Mac hasn't been tried.
+
+**What was wrong**
+- **Setup could get stuck on Permissions.** With Input Monitoring asked before Accessibility, its row stayed on "Allow…" until the app
+  was reopened, so someone who answered Later in macOS's prompt couldn't continue.
+- **macOS's prompts came too early or doubled.** The Accessibility prompt appeared at launch, because creating the event tap triggers it,
+  and pressing Allow opened two windows.
+- **The full menu was open during setup,** so someone couldn't tell whether setup had finished.
+- **"Preparing…" looked frozen,** with the bar sitting at 100%.
+
+**What the owner's tests found about Input Monitoring.** With Accessibility allowed first, the check turned true at once, LocalFlow
+didn't appear in Input Monitoring in System Settings, and the shortcut and dictation worked with no reopen. Setup therefore asks for
+Microphone and Accessibility, and shows Input Monitoring only if the shortcut hasn't started 5 seconds after those two. That row stays
+because other macOS versions may differ, and without it a failure there would be a shortcut that silently does nothing. It can go if
+testers on other versions never see it.
+
+**Decided (owner, 2026-11-04):** the menu bar icon stays during setup, since closing the setup window would otherwise leave no way to
+reach or quit the app. Until setup is done it opens a small panel with what's left, "Continue setup" and "Quit". The lock depends only
+on `hasCompletedOnboarding`, so History stays reachable if a permission is removed later.
+
+**Not verified**
+- The Input Monitoring row and its advice, which can't be reproduced on this Mac.
+- The in-app "Quit & Reopen" button. It wasn't recorded as pressed.
+- Any other Mac or macOS version.
+- Whether the Window menu can open the main window during setup, which would get around the lock.
+- "This can take a few minutes the first time" on the Prepare step. That time hasn't been measured, and a Mac that has prepared the
+  model before may be faster than a real first run.
+
+**Not done:** a download ETA. Nice to have. It shows "X of 632 MB" today. If added, keep it rough ("about 2 min left"), and check first
+that the download's progress moves smoothly.

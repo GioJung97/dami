@@ -54,6 +54,8 @@ final class AppSettings: ObservableObject {
     @Published var saveAudio: Bool { didSet { defaults.set(saveAudio, forKey: "saveAudio") } }
     @Published var paused = false
     @Published var hasCompletedOnboarding: Bool { didSet { defaults.set(hasCompletedOnboarding, forKey: "hasCompletedOnboarding") } }
+    /// The setup step someone is on (`SetupStep`), so setup can continue after the app is reopened.
+    @Published var setupStep: Int { didSet { defaults.set(setupStep, forKey: "setupStep") } }
 
     var launchAtLogin: Bool {
         get { SMAppService.mainApp.status == .enabled }
@@ -85,6 +87,7 @@ final class AppSettings: ObservableObject {
         audioRetentionDays = defaults.object(forKey: "audioRetentionDays") as? Int ?? 30
         saveAudio = defaults.bool(forKey: "saveAudio")
         hasCompletedOnboarding = defaults.bool(forKey: "hasCompletedOnboarding")
+        setupStep = defaults.integer(forKey: "setupStep")
     }
 
     /// Display label for a mode: "Auto", "EN", or the second language's code.

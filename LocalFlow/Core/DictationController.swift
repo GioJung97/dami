@@ -99,6 +99,9 @@ final class DictationController: ObservableObject {
 
     var isModelReady: Bool { modelStatus == .ready }
 
+    /// Judged by the hotkey really running rather than by what the Input Monitoring check says.
+    var permissionsReady: Bool { Permissions.shared.coreGranted && hotkeyActive }
+
     init() {
         processor = DictationProcessor(transcriber: transcriber)
         processor.onOutcome = { [weak self] in self?.dictationEnded($0) }
@@ -208,9 +211,11 @@ final class DictationController: ObservableObject {
 
     // MARK: Hotkey
 
-    /// The event tap needs Input Monitoring + Accessibility; retry until they're granted.
+    /// The event tap needs Input Monitoring + Accessibility; retry until they're granted. Creating it makes macOS ask for Accessibility,
+    /// so during first-time setup it waits for the Allow buttons. After setup, it keeps trying whatever the permission checks say.
+    /// Input Monitoring isn't waited for: setup asks for it only if this doesn't start.
     private func startHotkeyWhenPermitted() {
-        if hotkey.start() {
+        if (settings.hasCompletedOnboarding || Permissions.shared.coreGranted) && hotkey.start() {
             hotkeyActive = true
             return
         }
@@ -228,6 +233,11 @@ final class DictationController: ObservableObject {
         }
         if !stoppingRecordings.isEmpty { recorder.endTail() }
         guard !isRecording, !settings.paused else { return }
+        guard settings.hasCompletedOnboarding || SetupStep(rawValue: settings.setupStep)?.allowsShortcut == true else {
+            report("Finish setup first")
+            Navigation.shared.openSetup()
+            return
+        }
         switch modelStatus {
         case .downloading(let progress):
             report("Downloading speech model · \(Int(progress * 100))%")

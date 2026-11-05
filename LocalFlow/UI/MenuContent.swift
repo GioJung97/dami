@@ -10,11 +10,73 @@ struct MenuContent: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        if settings.hasCompletedOnboarding {
+            fullMenu
+        } else {
+            setupPanel
+        }
+    }
+
+    /// Until setup is finished, only what's left and the two ways out, so nobody takes a half-set-up app for a broken one.
+    private var setupPanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("LocalFlow").font(.system(size: 13, weight: .bold))
+                Text("Setup isn't finished yet").font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.top, 6)
+            Divider().padding(.vertical, 6)
+
+            setupRow("Language", detail: settings.setupStep > SetupStep.language.rawValue ? nil : "To do")
+            setupRow("Permissions", detail: controller.permissionsReady ? nil : "To do")
+            setupRow("Speech model", detail: setupModelDetail)
+
+            Divider().padding(.vertical, 6)
+            Button { open(WindowID.onboarding) } label: {
+                Text("Continue setup").frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(MenuRowStyle())
+            Button { NSApplication.shared.terminate(nil) } label: { row("Quit LocalFlow", shortcut: "⌘Q") }
+                .buttonStyle(MenuRowStyle())
+                .keyboardShortcut("q")
+        }
+        .padding(6)
+        .frame(width: 300)
+    }
+
+    /// Nil means done.
+    private var setupModelDetail: String? {
+        switch controller.modelStatus {
+        case .downloading(let progress): "\(Int(progress * 100))%"
+        case .loading: "Preparing…"
+        case .ready: nil
+        case .failed: "Needs attention"
+        }
+    }
+
+    private func setupRow(_ name: String, detail: String?) -> some View {
+        HStack {
+            Text(name)
+            Spacer()
+            if let detail {
+                Text(detail).foregroundStyle(.secondary).monospacedDigit()
+            } else {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .accessibilityLabel("Done")
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+    }
+
+    private var fullMenu: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider().padding(.vertical, 4)
 
-            if !permissions.allGranted {
+            if !controller.permissionsReady {
                 Button {
                     open(WindowID.onboarding)
                 } label: {

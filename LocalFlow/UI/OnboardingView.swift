@@ -9,18 +9,30 @@ struct OnboardingView: View {
     @Environment(\.dismissWindow) private var dismissWindow
     @State private var step: Step
     @State private var practiceText = ""
+    /// Rows where Allow was pressed. If one still isn't allowed, the app may need to reopen to see it.
+    @State private var requested: Set<PermissionKind> = []
+    /// The hotkey still hasn't started some seconds after Microphone and Accessibility were allowed.
+    @State private var hotkeyIsStuck = false
     /// Setup is done and a permission was taken away: only ask for that again.
     private let repairingPermissions: Bool
 
-    enum Step: Int, CaseIterable {
-        case welcome, language, permissions, model, practice, done
+    typealias Step = SetupStep
+
+    private static let hotkeyGraceSeconds = 5
+
+    private enum PermissionKind {
+        case microphone, inputMonitoring, accessibility
     }
 
     init(controller: DictationController) {
         self.controller = controller
-        let repairing = AppSettings.shared.hasCompletedOnboarding && !Permissions.shared.allGranted
+        let repairing = AppSettings.shared.hasCompletedOnboarding && !controller.permissionsReady
         repairingPermissions = repairing
-        _step = State(initialValue: repairing ? .permissions : .welcome)
+        _step = State(initialValue: repairing ? .permissions : SetupStep.resume(
+            saved: AppSettings.shared.setupStep,
+            permissionsGranted: controller.permissionsReady,
+            modelReady: controller.isModelReady
+        ))
     }
 
     var body: some View {
@@ -43,9 +55,18 @@ struct OnboardingView: View {
         }
         .frame(width: 640, height: 480)
         .navigationTitle(repairingPermissions ? "LocalFlow Permissions" : "Welcome to LocalFlow")
-        .onChange(of: permissions.allGranted) { _, granted in
-            if repairingPermissions && granted { dismissWindow(id: WindowID.onboarding) }
+        .onChange(of: controller.permissionsReady) { _, ready in
+            if repairingPermissions && ready { dismissWindow(id: WindowID.onboarding) }
         }
+        .task(id: permissions.coreGranted && !controller.hotkeyActive) {
+            hotkeyIsStuck = false
+            guard permissions.coreGranted && !controller.hotkeyActive else { return }
+            // The hotkey retries every 2 s and permissions refresh every 2 s, so give both a turn before asking for more.
+            try? await Task.sleep(for: .seconds(Self.hotkeyGraceSeconds))
+            if !Task.isCancelled { hotkeyIsStuck = true }
+        }
+        .onAppear(perform: saveStep)
+        .onChange(of: step) { _, _ in saveStep() }
     }
 
     @ViewBuilder private var footer: some View {
@@ -101,31 +122,51 @@ struct OnboardingView: View {
             if repairingPermissions {
                 title("Permission needed", "LocalFlow can't work without these. This window closes once they're all allowed.")
             } else {
-                title("Three permissions", "macOS asks you to allow each one. This window updates on its own.")
+                title("Permissions", "Allow each one. macOS may offer Later or Quit & Reopen: choose Later, and setup continues here.")
             }
             VStack(spacing: 0) {
-                permissionRow("Microphone", "To hear you while you hold the shortcut.", permissions.microphone) {
+                permissionRow(.microphone, "Microphone", "To hear you while you hold the shortcut.", permissions.microphone) {
                     permissions.requestMicrophone()
                 }
                 Divider()
-                permissionRow("Input Monitoring", "To notice the shortcut in any app.", permissions.inputMonitoring) {
-                    permissions.requestInputMonitoring()
-                }
-                Divider()
-                permissionRow("Accessibility", "To paste the text where your cursor is.", permissions.accessibility) {
+                permissionRow(.accessibility, "Accessibility", "To notice the shortcut, and paste where your cursor is.", permissions.accessibility) {
                     permissions.requestAccessibility()
+                }
+                if hotkeyIsStuck {
+                    Divider()
+                    permissionRow(.inputMonitoring, "Input Monitoring", "This Mac also needs this one, to notice the shortcut in any app.", false) {
+                        permissions.requestInputMonitoring()
+                    }
                 }
             }
             .background(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor)))
-            if permissions.inputMonitoring && !controller.hotkeyActive {
-                Text("If the shortcut doesn't work after allowing Input Monitoring, quit and reopen LocalFlow.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+            if mayNeedReopen {
+                HStack(spacing: 12) {
+                    Text(reopenAdvice)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Quit & Reopen") { permissions.quitAndReopen() }
+                }
             }
         }
     }
 
-    private func permissionRow(_ name: String, _ why: String, _ granted: Bool, request: @escaping () -> Void) -> some View {
+    private var reopenAdvice: String {
+        hotkeyIsStuck
+            ? "After allowing Input Monitoring, reopen LocalFlow so it can see it."
+            : "Allowed it, but it still says Allow? LocalFlow may need to reopen to see it."
+    }
+
+    private var mayNeedReopen: Bool {
+        (requested.contains(.microphone) && !permissions.microphone)
+            || (requested.contains(.accessibility) && !permissions.accessibility)
+            || hotkeyIsStuck
+    }
+
+    private func permissionRow(
+        _ kind: PermissionKind, _ name: String, _ why: String, _ granted: Bool, request: @escaping () -> Void
+    ) -> some View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(name).font(.system(size: 14, weight: .semibold))
@@ -137,7 +178,11 @@ struct OnboardingView: View {
                     .foregroundStyle(.green)
                     .font(.system(size: 13, weight: .semibold))
             } else {
-                Button("Allow…", action: request).buttonStyle(.borderedProminent)
+                Button("Allow…") {
+                    requested.insert(kind)
+                    request()
+                }
+                .buttonStyle(.borderedProminent)
             }
         }
         .padding(14)
@@ -145,14 +190,11 @@ struct OnboardingView: View {
 
     private var model: some View {
         VStack(alignment: .leading, spacing: 16) {
-            title("Getting the speech model", "A one-time download. After this, LocalFlow works without internet.")
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text(Transcriber.modelDisplayName).fontWeight(.semibold)
-                    Spacer()
-                    Text(modelStatus).foregroundStyle(.secondary).monospacedDigit()
-                }
+            title("Getting the speech model", "This only happens once. After this, LocalFlow works without internet.")
+            VStack(alignment: .leading, spacing: 14) {
+                Text(Transcriber.modelDisplayName).fontWeight(.semibold)
                 if case .failed(let problem) = controller.modelStatus {
+                    Text(problem.message).foregroundStyle(.secondary)
                     HStack {
                         Text(problem.advice)
                             .font(.system(size: 12))
@@ -161,7 +203,8 @@ struct OnboardingView: View {
                         Button(problem.actionTitle) { controller.retryModel() }
                     }
                 } else {
-                    ProgressView(value: modelProgress)
+                    downloadStage
+                    prepareStage
                     Text("This Mac: \(MemoryInfo.macDescription)")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
@@ -169,6 +212,49 @@ struct OnboardingView: View {
             }
             .padding(18)
             .background(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor)))
+        }
+    }
+
+    private var downloadStage: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if case .downloading(let progress) = controller.modelStatus {
+                modelStageLabel("1. Download", done: false) {
+                    Text("\(Int(progress * Double(Transcriber.modelSizeMB))) of \(Transcriber.modelSizeMB) MB")
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                ProgressView(value: progress)
+            } else {
+                modelStageLabel("1. Download", done: true) { EmptyView() }
+            }
+        }
+    }
+
+    private var prepareStage: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            modelStageLabel("2. Prepare for this Mac's Neural Engine", done: controller.modelStatus == .ready) { EmptyView() }
+            if controller.modelStatus == .loading {
+                ProgressView()
+                    .progressViewStyle(.linear)
+                Text("This can take a few minutes the first time. macOS doesn't report a percentage for this step.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func modelStageLabel<Trailing: View>(
+        _ name: String, done: Bool, @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        HStack(spacing: 6) {
+            Text(name)
+            if done {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .accessibilityLabel("Done")
+            }
+            Spacer()
+            trailing()
         }
     }
 
@@ -220,23 +306,9 @@ struct OnboardingView: View {
 
     // MARK: Navigation
 
-    private var modelProgress: Double {
-        if case .downloading(let progress) = controller.modelStatus { return progress }
-        return 1
-    }
-
-    private var modelStatus: String {
-        switch controller.modelStatus {
-        case .downloading(let progress): "\(Int(progress * Double(Transcriber.modelSizeMB))) of \(Transcriber.modelSizeMB) MB"
-        case .loading: "Preparing…"
-        case .ready: "Ready"
-        case .failed(let problem): problem.message
-        }
-    }
-
     private var canContinue: Bool {
         switch step {
-        case .permissions: permissions.allGranted
+        case .permissions: controller.permissionsReady
         case .model: controller.isModelReady
         default: true
         }
@@ -258,6 +330,10 @@ struct OnboardingView: View {
             return
         }
         move(1)
+    }
+
+    private func saveStep() {
+        if !repairingPermissions { settings.setupStep = step.rawValue }
     }
 
     private func move(_ delta: Int) {
