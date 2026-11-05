@@ -15,8 +15,8 @@ right away, in any version.
 | Version | Goal | Done when | State |
 |---|---|---|---|
 | v0.1 | It works: hold a key, speak, paste | Usable every day | Done, on `main` |
-| v0.2 | It can be trusted all day | Must-test list done, a week of use without losing speech silently, owner says merge (`docs/plans/v0.2.md`) | Week of use, until 2026-11-11 at the earliest |
-| v0.3 | It learns from fixes | `docs/plans/v0.3.md` §6 | Planned, not started |
+| v0.2 | It can be trusted all day | Must-test list done, owner says merge (`docs/plans/v0.2.md`). Stability stays under check in daily use | Done, on `main` |
+| v0.3 | It learns from fixes | `docs/plans/v0.3.md` §6 | In progress on branch `v0.3`, M1 next |
 | v0.4 | It cleans up text with a local LLM | `docs/plans/v0.4.md` | Outline only |
 | **v1.0** | **Anyone on a Mac can install and trust it** | See below | No plan yet |
 | After v1.0 | Improve, based on real needs | Each change on its own | Not scheduled, below |
@@ -364,6 +364,9 @@ the Roadmap at the top.
   reliability, microphone choice, states and retry, spacing, schema v2, retention. See `docs/plans/v0.2.md` and
   `docs/sessions/2026-11-02-v0.2-implementation.md`. `.dmg` moved to the later list. Done conditions still open: a week
   of daily use, and the items marked unverified in the session note.
+- **Status (2026-11-04): v0.2 finished and merged to `main`, on the owner's word.** The must-test list is done, with one item waived
+  and unverified (dictating on the fallback mic). The owner replaced the week of use with a continuous check alongside v0.3, since a
+  fixed period can't promise to catch rare problems (`CLAUDE.md`).
 
 ### Phase 3 — Cleanup (2–3 days)
 - Rules layer (fillers, repeats).

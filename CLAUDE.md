@@ -32,13 +32,18 @@ speak English plus one other language (Korean is the tested one) or both mixed, 
 
 ## Current state and branches
 
-- **v0.2 is implemented but not finished.** The work is on branch `v0.2`. `main` is still the version before it, on purpose.
-- **Don't merge `v0.2` into `main`, and don't suggest it as the next step,** until all of this is true:
-  1. Every "Must still be tested" item in `docs/plans/v0.2.md` §6 is checked off.
-  2. The owner has used it daily for a week without losing speech silently.
-  3. The owner says to merge.
-- Then: tick §6, add a dated Status line to `PLAN.md` §7, and merge.
-- Keep working on `v0.2`. On a new machine: `git fetch && git switch v0.2`.
+- **v0.2 is finished and on `main`** (owner, 2026-11-04). Work continues on branch `v0.3`. On a new machine:
+  `git fetch && git switch v0.3`.
+- **Stability is checked continuously, not over a fixed period** (owner, 2026-11-04). Rare problems may not appear in any given week,
+  so this runs alongside new work. The owner reports what they notice. **At the end of each milestone, an agent checks what the owner
+  can't see:** `defaults read com.localflow.app dropCounts`, error-level entries in the app's log, and crash reports, then reports
+  anything unexplained. Text and key identity are never read. Unified logs here only reach back about a day, so a clean log is weak
+  evidence.
+- A bug that loses speech, pastes wrongly or breaks trust stops other work until it's fixed.
+- **Don't merge a version into `main`, and don't suggest it as the next step,** until both are true:
+  1. Every done condition in that version's plan is checked, or recorded as waived and unverified.
+  2. The owner says to merge.
+- Then: tick the plan's list, add a dated Status line to `PLAN.md` §7, and merge.
 - Ask before any push or merge. Nothing gets published without the owner's say. The repo is private, and `docs/` and `bench/`
   hold personal notes to review before it goes public.
 
