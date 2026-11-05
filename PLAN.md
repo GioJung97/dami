@@ -16,7 +16,7 @@ right away, in any version.
 |---|---|---|---|
 | v0.1 | It works: hold a key, speak, paste | Usable every day | Done, on `main` |
 | v0.2 | It can be trusted all day | Must-test list done, owner says merge (`docs/plans/v0.2.md`). Stability stays under check in daily use | Done, on `main` |
-| v0.3 | It learns from fixes | `docs/plans/v0.3.md` §6 | In progress on branch `v0.3`, M1 next |
+| v0.3 | It learns from fixes | `docs/plans/v0.3.md` §6 | In progress on branch `v0.3`, M3 next |
 | v0.4 | It cleans up text with a local LLM | `docs/plans/v0.4.md` | Outline only |
 | **v1.0** | **Anyone on a Mac can install and trust it** | See below | No plan yet |
 | After v1.0 | Improve, based on real needs | Each change on its own | Not scheduled, below |
@@ -399,6 +399,8 @@ the Roadmap at the top.
 - **Done when:** names and jargon you use often are spelled right without fixing.
 
 - **Status (2026-11-04): planned for v0.3** in `docs/plans/v0.3.md`, not started.
+- **Status (2026-11-05): v0.3 started on branch `v0.3`.** M1 done: Notes, Chrome text boxes and Terminal can be read, cmux and
+  Google Docs can't (`docs/sessions/2026-11-05-v0.3-m1.md`). Automatic capture will be built after M3 and M4.
 
 ### Phase 6 — Later / optional
 - "Command mode": select text, hold a different key, say "make this more formal" / "영어로 번역해줘".
