@@ -19,6 +19,7 @@ struct SecondScriptTermHint: View {
 
 struct DictionaryView: View {
     @ObservedObject private var store = Store.shared
+    @ObservedObject private var fit = VocabularyFit.shared
     @State private var tab = Tab.vocabulary
     @State private var newTerm = ""
     @State private var newFind = ""
@@ -35,7 +36,7 @@ struct DictionaryView: View {
             Picker("Section", selection: $tab) {
                 Text("Vocabulary · \(store.vocabulary.count)").tag(Tab.vocabulary)
                 Text("Replacements · \(store.replacements.count)").tag(Tab.replacements)
-                Text("Suggestions").tag(Tab.suggestions)
+                Text(pendingCount > 0 ? "Suggestions · \(pendingCount)" : "Suggestions").tag(Tab.suggestions)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -69,7 +70,14 @@ struct DictionaryView: View {
                     ForEach(store.vocabulary) { term in
                         HStack(spacing: 6) {
                             Text(term.term).lineLimit(1)
+                                .foregroundStyle(fit.leftOut.contains(term.term) ? .secondary : .primary)
                             Spacer(minLength: 0)
+                            if fit.leftOut.contains(term.term) {
+                                Text("Not in the hint")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.orange)
+                                    .help("Whisper's hint has room for a limited number of terms, newest first. This one doesn't fit.")
+                            }
                             Button {
                                 store.removeTerm(term)
                             } label: {
@@ -83,6 +91,12 @@ struct DictionaryView: View {
                         .background(Capsule().strokeBorder(Color(nsColor: .separatorColor)))
                     }
                 }
+            }
+            if !fit.leftOut.isEmpty {
+                Text("\(fit.leftOut.count) of these don't fit in Whisper's hint, which has room for a limited number. The newest terms are used. Remove ones you no longer need, or use Replacements for them.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Text("These help English dictations only: Whisper gets them as a spelling hint. For your second language and mixed sentences, or terms it still mishears, use Replacements.")
                 .font(.system(size: 12))
@@ -128,14 +142,45 @@ struct DictionaryView: View {
         }
     }
 
+    private var pendingCount: Int { store.suggestions.filter { $0.status == .pending }.count }
+
     private var suggestions: some View {
-        Card {
-            Text("Learned from your edits").font(.system(size: 15, weight: .semibold))
-            Text("After LocalFlow pastes, it will notice words you fix right away and suggest them here. Coming in a later update.")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+        let pending = store.suggestions.filter { $0.status == .pending }
+        let declined = store.suggestions.filter { $0.status == .declined }
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("When you fix a word in History, LocalFlow offers to fix it every time. Nothing changes until you say so.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                if pending.isEmpty && declined.isEmpty {
+                    Card {
+                        Text("No suggestions yet").font(.system(size: 15, weight: .semibold))
+                        Text("Fix a dictation in History, and a word you changed shows up here if you haven't answered it there.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: 560)
+                }
+                if !pending.isEmpty {
+                    Text("WAITING FOR AN ANSWER").font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
+                    ForEach(pending) { SuggestionBox(suggestion: $0) }
+                }
+                if !declined.isEmpty {
+                    Text("DECLINED").font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
+                    ForEach(declined) { suggestion in
+                        HStack {
+                            Text(suggestion.find)
+                            Image(systemName: "arrow.right").foregroundStyle(.secondary)
+                            Text(suggestion.replace)
+                            Spacer()
+                            Button("Ask again") { store.askAgain(suggestion) }
+                        }
+                        .frame(maxWidth: 560)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: 560)
     }
 
     private func addTerm() {
@@ -147,5 +192,50 @@ struct DictionaryView: View {
         store.addReplacement(find: newFind, replace: newReplace)
         newFind = ""
         newReplace = ""
+    }
+}
+
+/// "Always fix X → Y?", with how many past dictations have the word, so a rule that would also hit other words shows up first.
+struct SuggestionBox: View {
+    let suggestion: Suggestion
+    @State private var preview: (dictations: Int, words: [String])?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Text("Always fix")
+                Text("\u{201C}\(suggestion.find)\u{201D}").fontWeight(.semibold)
+                Image(systemName: "arrow.right").foregroundStyle(.secondary)
+                Text("\u{201C}\(suggestion.replace)\u{201D}").fontWeight(.semibold)
+                Text("?")
+            }
+            .font(.system(size: 13))
+            if let preview {
+                Text(previewText(preview))
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack {
+                Button("Always fix") { Store.shared.answer(suggestion, accept: true) }
+                    .buttonStyle(.borderedProminent)
+                Button("Not this") { Store.shared.answer(suggestion, accept: false) }
+                Spacer()
+                Text("Only future dictations change.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: 560, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
+        .onAppear { preview = Store.shared.preview(find: suggestion.find) }
+    }
+
+    private func previewText(_ preview: (dictations: Int, words: [String])) -> String {
+        guard preview.dictations > 0 else { return "None of your past dictations has this word." }
+        let count = preview.dictations == 1 ? "1 past dictation has" : "\(preview.dictations) past dictations have"
+        let words = preview.words.map { "\u{201C}\($0)\u{201D}" }.joined(separator: ", ")
+        return "\(count) this, as in \(words). Check that these should change too."
     }
 }

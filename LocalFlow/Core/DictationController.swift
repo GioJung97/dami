@@ -3,6 +3,13 @@ import Combine
 import LocalFlowCore
 import os
 
+/// Vocabulary terms that don't fit in Whisper's prompt, for the Dictionary screen. Known once the model is loaded.
+@MainActor
+final class VocabularyFit: ObservableObject {
+    static let shared = VocabularyFit()
+    @Published var leftOut: Set<String> = []
+}
+
 /// The shortcut and the current recording. A finished recording goes to `DictationProcessor`, so
 /// the next one can start right away.
 @MainActor
@@ -136,6 +143,11 @@ final class DictationController: ObservableObject {
             .sink { [weak self] in self?.objectWillChange.send() }
             .store(in: &cancellables)
 
+        store.$vocabulary
+            .dropFirst()
+            .sink { [weak self] _ in DispatchQueue.main.async { self?.refreshVocabularyFit() } }
+            .store(in: &cancellables)
+
         // A fix in History changes what Recent shows and pastes.
         store.$revision
             .sink { [weak self] _ in
@@ -189,6 +201,7 @@ final class DictationController: ObservableObject {
                     }
                 }
                 setModelStatus(.ready)
+                refreshVocabularyFit()
                 log.info("Model loaded")
             } catch {
                 setModelStatus(.failed(error as? ModelProblem ?? .loadFailed))
@@ -208,6 +221,21 @@ final class DictationController: ObservableObject {
     /// Settings' shortcut recorder needs the real shortcut to stay quiet while it listens.
     func suspendHotkey(_ suspended: Bool) {
         hotkey.isSuspended = suspended
+    }
+
+    /// The terms a dictation would send, same filter as `recordingStopped`.
+    private var promptTerms: [String] {
+        let second = settings.secondLanguage
+        return store.vocabulary.map(\.term).filter { term in second?.script?.matches(term) != true }
+    }
+
+    private func refreshVocabularyFit() {
+        let terms = promptTerms
+        Task {
+            guard await transcriber.isLoaded else { return }
+            let fit = await transcriber.fittingVocabulary(terms)
+            VocabularyFit.shared.leftOut = Set(terms).subtracting(fit)
+        }
     }
 
     func pasteAgain(_ dictation: Dictation) {

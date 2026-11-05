@@ -176,6 +176,9 @@ private struct HistoryDetail: View {
     @State private var addingTerm = false
     @State private var fixing: Bool
     @State private var draft: String
+    /// Offered after a fix, until answered.
+    @State private var suggestion: Suggestion?
+    @ObservedObject private var store = Store.shared
     @FocusState private var draftFocused: Bool
     @StateObject private var playback = AudioPlayback()
 
@@ -215,6 +218,10 @@ private struct HistoryDetail: View {
                         Text("PASTED TEXT").font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
                         Text(dictation.finalText).font(.system(size: 16)).textSelection(.enabled)
                     }
+                }
+
+                if let suggestion, store.suggestions.contains(where: { $0.id == suggestion.id && $0.status == .pending }) {
+                    SuggestionBox(suggestion: suggestion)
                 }
 
                 if dictation.rawText != dictation.finalText {
@@ -278,7 +285,10 @@ private struct HistoryDetail: View {
                 Button("Cancel") { fixing = false }
                     .keyboardShortcut(.cancelAction)
                 Button("Save") {
-                    Store.shared.fix(dictation, to: draft)
+                    let before = dictation.displayText
+                    if Store.shared.fix(dictation, to: draft) {
+                        suggestion = Store.shared.suggestion(fromFix: before, to: draft.trimmingCharacters(in: .whitespacesAndNewlines), dictation: dictation)
+                    }
                     fixing = false
                 }
                 .keyboardShortcut(.return, modifiers: .command)

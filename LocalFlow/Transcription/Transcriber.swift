@@ -172,12 +172,15 @@ actor Transcriber {
 
         let second = language == "en" ? nil : options.secondLanguage
         var prompt: String?
+        var vocabularyInPrompt: [String] = []
         if language == nil {
             prompt = nil
         } else if let second {
             prompt = options.keepEnglishTerms ? second.mixedPrompt : nil
         } else {
-            prompt = options.vocabulary.isEmpty ? nil : options.vocabulary.joined(separator: ", ") + "."
+            let terms = fittingVocabulary(options.vocabulary)
+            prompt = terms.isEmpty ? nil : VocabularyPrompt.text(terms)
+            vocabularyInPrompt = terms
         }
 
         var run = try await run(whisper, audio, prompt: prompt, language: language, wordTimestamps: options.wordTimestamps)
@@ -199,10 +202,20 @@ actor Transcriber {
             text: run.text,
             language: language ?? run.language ?? "en",
             prompt: prompt,
-            promptVocabulary: prompt != nil && language == "en" ? options.vocabulary : [],
+            promptVocabulary: prompt != nil && language == "en" ? vocabularyInPrompt : [],
             words: run.words
         )
     }
+
+    /// Whole terms that fit in the prompt, newest first. Empty until the model is loaded.
+    func fittingVocabulary(_ terms: [String]) -> [String] {
+        guard let tokenizer = whisper?.tokenizer else { return [] }
+        return VocabularyPrompt.fitting(terms) { text in
+            tokenizer.encode(text: text).filter { $0 < tokenizer.specialTokens.specialTokenBegin }.count
+        }
+    }
+
+    var isLoaded: Bool { whisper != nil }
 
     /// Half a second of silence on each side for the empty-result retry.
     private static let paddingSamples = 8_000

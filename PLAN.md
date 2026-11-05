@@ -16,7 +16,7 @@ right away, in any version.
 |---|---|---|---|
 | v0.1 | It works: hold a key, speak, paste | Usable every day | Done, on `main` |
 | v0.2 | It can be trusted all day | Must-test list done, owner says merge (`docs/plans/v0.2.md`). Stability stays under check in daily use | Done, on `main` |
-| v0.3 | It learns from fixes | `docs/plans/v0.3.md` §6 | In progress on branch `v0.3`, M4 next |
+| v0.3 | It learns from fixes | `docs/plans/v0.3.md` §6 | In progress on branch `v0.3`, M2 next |
 | v0.4 | It cleans up text with a local LLM | `docs/plans/v0.4.md` | Outline only |
 | **v1.0** | **Anyone on a Mac can install and trust it** | See below | No plan yet |
 | After v1.0 | Improve, based on real needs | Each change on its own | Not scheduled, below |

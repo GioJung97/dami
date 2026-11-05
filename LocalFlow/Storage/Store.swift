@@ -76,6 +76,24 @@ struct DictationEdit: Codable, Identifiable, FetchableRecord, MutablePersistable
     mutating func didInsert(_ inserted: InsertionSuccess) { id = inserted.rowID }
 }
 
+/// A Replacement LocalFlow offered after a fix. Answered once: accepted becomes a Replacement, declined isn't offered again.
+struct Suggestion: Codable, Identifiable, FetchableRecord, MutablePersistableRecord, Equatable {
+    enum Status: String, Codable { case pending, accepted, declined }
+
+    var id: Int64?
+    var find: String
+    var replace: String
+    var status: Status
+    /// "history" or "auto", like `DictationEdit.source`.
+    var source: String
+    var createdAt: Date
+    /// The fix it came from. Cleared, not deleted, when that dictation goes.
+    var dictationId: Int64?
+
+    static let databaseTableName = "suggestion"
+    mutating func didInsert(_ inserted: InsertionSuccess) { id = inserted.rowID }
+}
+
 /// A word Whisper should spell your way. English terms are fed to Whisper as a hint.
 struct VocabularyTerm: Codable, Identifiable, FetchableRecord, MutablePersistableRecord, Equatable {
     var id: Int64?
@@ -109,6 +127,7 @@ final class Store: ObservableObject {
     @Published private(set) var dictations: [Dictation] = []
     @Published private(set) var vocabulary: [VocabularyTerm] = []
     @Published private(set) var replacements: [Replacement] = []
+    @Published private(set) var suggestions: [Suggestion] = []
 
     /// Dictations kept in memory, newest first, for the Home screen and the menu. History queries the database.
     static let recentLimit = 50
@@ -239,6 +258,18 @@ final class Store: ObservableObject {
                 t.column("secondsToEdit", .double)
             }
         }
+        migrator.registerMigration("v4") { db in
+            try db.create(table: "suggestion") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("find", .text).notNull()
+                t.column("replace", .text).notNull()
+                t.column("status", .text).notNull()
+                t.column("source", .text).notNull()
+                t.column("createdAt", .datetime).notNull()
+                t.belongsTo("dictation", onDelete: .setNull)
+                t.uniqueKey(["find", "replace"])
+            }
+        }
         return migrator
     }
 
@@ -247,6 +278,7 @@ final class Store: ObservableObject {
             try db.read { db in
                 vocabulary = try VocabularyTerm.order(Column("createdAt")).fetchAll(db)
                 replacements = try Replacement.order(Column("createdAt")).fetchAll(db)
+                suggestions = try Suggestion.order(Column("createdAt").desc).fetchAll(db)
             }
         } catch {
             NSLog("LocalFlow: reload failed: \(error.localizedDescription)")
@@ -317,6 +349,61 @@ final class Store: ObservableObject {
         reloadRecent()
     }
 
+    // MARK: Suggestions
+
+    /// The suggestion a fix leads to, if it's new: a pair already answered, or already a Replacement, isn't offered again.
+    func suggestion(fromFix before: String, to after: String, dictation: Dictation) -> Suggestion? {
+        guard let pair = FixSuggestion.from(before: before, after: after) else { return nil }
+        if replacements.contains(where: { $0.find == pair.find && $0.replace == pair.replace }) { return nil }
+        if let existing = suggestions.first(where: { $0.find == pair.find && $0.replace == pair.replace }) {
+            return existing.status == .pending ? existing : nil
+        }
+        var row = Suggestion(
+            find: pair.find, replace: pair.replace, status: .pending, source: "history", createdAt: Date(), dictationId: dictation.id
+        )
+        do {
+            try db.write { db in try row.insert(db) }
+        } catch {
+            HealthCounter.count(.historySaveFailed)
+            return nil
+        }
+        reloadDictionary()
+        return row
+    }
+
+    /// How many stored dictations a rule for `find` would have changed, with a few of the words it would touch.
+    func preview(find: String) -> (dictations: Int, words: [String]) {
+        let texts = (try? db.read { try String.fetchAll($0, sql: "SELECT coalesce(fixedText, finalText) FROM dictation") }) ?? []
+        var count = 0
+        var words: [String] = []
+        for text in texts {
+            let matched = ReplacementEngine.matchedWords(find, in: text)
+            guard !matched.isEmpty else { continue }
+            count += 1
+            for word in matched where !words.contains(word) && words.count < 3 { words.append(word) }
+        }
+        return (count, words)
+    }
+
+    func answer(_ suggestion: Suggestion, accept: Bool) {
+        guard let id = suggestion.id else { return }
+        if accept { addReplacement(find: suggestion.find, replace: suggestion.replace) }
+        let status: Suggestion.Status = accept ? .accepted : .declined
+        _ = try? db.write { db in
+            try db.execute(sql: "UPDATE suggestion SET status = ? WHERE id = ?", arguments: [status.rawValue, id])
+        }
+        reloadDictionary()
+    }
+
+    /// A declined suggestion goes back to waiting for an answer.
+    func askAgain(_ suggestion: Suggestion) {
+        guard let id = suggestion.id else { return }
+        _ = try? db.write { db in
+            try db.execute(sql: "UPDATE suggestion SET status = 'pending' WHERE id = ?", arguments: [id])
+        }
+        reloadDictionary()
+    }
+
     func edits(for dictation: Dictation) -> [DictationEdit] {
         guard let id = dictation.id else { return [] }
         return (try? db.read { try DictationEdit.filter(Column("dictationId") == id).order(Column("createdAt")).fetchAll($0) }) ?? []
@@ -326,14 +413,16 @@ final class Store: ObservableObject {
         guard let id = dictation.id else { return }
         _ = try? db.write { db in try Dictation.deleteOne(db, id: id) }
         try? FileManager.default.removeItem(at: audioURL(for: id))
-        // The window may have to reach further back now.
+        // The window may have to reach further back now. Suggestions from it lose their link.
         reloadRecent()
+        reloadDictionary()
     }
 
     func deleteAllHistory() {
         _ = try? db.write { db in try Dictation.deleteAll(db) }
         try? FileManager.default.removeItem(at: audioDirectory)
         reloadRecent()
+        reloadDictionary()
     }
 
     /// Applies the retention settings. Text: 0 = keep forever, -1 = keep nothing, N = keep N days.
