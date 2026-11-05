@@ -1,4 +1,21 @@
+import LocalFlowCore
 import SwiftUI
+
+/// Vocabulary only reaches Whisper for English dictations, so a term in the second language's script
+/// wouldn't do anything there. Says so while it's being typed.
+struct SecondScriptTermHint: View {
+    let term: String
+    @ObservedObject private var settings = AppSettings.shared
+
+    var body: some View {
+        if let second = settings.secondLanguage, second.script?.matches(term) == true {
+            Text("\(second.name) terms don't help here, since Vocabulary only reaches English dictations. Use Replacements to fix how a \(second.name) word comes out.")
+                .font(.system(size: 12))
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
 
 struct DictionaryView: View {
     @ObservedObject private var store = Store.shared
@@ -38,7 +55,7 @@ struct DictionaryView: View {
     private var vocabulary: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                TextField("Add a word or name, e.g. 김지수", text: $newTerm)
+                TextField("Add a word or name, e.g. Tailwind", text: $newTerm)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 320)
                     .onSubmit(addTerm)
@@ -46,6 +63,7 @@ struct DictionaryView: View {
                     .buttonStyle(.borderedProminent)
                     .disabled(newTerm.trimmingCharacters(in: .whitespaces).isEmpty)
             }
+            SecondScriptTermHint(term: newTerm)
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 8, alignment: .leading)], alignment: .leading, spacing: 8) {
                     ForEach(store.vocabulary) { term in
@@ -66,7 +84,7 @@ struct DictionaryView: View {
                     }
                 }
             }
-            Text("English terms are given to Whisper as a spelling hint for English dictations. Terms it still mishears go in Replacements.")
+            Text("These help English dictations only: Whisper gets them as a spelling hint. For your second language and mixed sentences, or terms it still mishears, use Replacements.")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
         }

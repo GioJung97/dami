@@ -1,0 +1,83 @@
+id	lang	category	input	expected_light	notes	expected_smart
+en02	en	must_fix	Um, I think we should, uh, push the release to next Friday because the tests are still failing.	I think we should push the release to next Friday because the tests are still failing.		
+en03	en	must_fix	Let's meet at 3, no, actually 4 p.m. at the coffee shop near the office.	Let's meet at 4 p.m. at the coffee shop near the office.		
+en06	en	must_fix	Remind me to buy milk, eggs, and, uh, some bread on the way home.	Remind me to buy milk, eggs, and some bread on the way home.		
+ko02	ko	must_fix	음, 내일 회의는 오전 10시로 옮기는 게 좋을 것 같아요.	내일 회의는 오전 10시로 옮기는 게 좋을 것 같아요.		
+ko05	ko	must_fix	3시에, 아니 4시에 강남역 앞에서 만나자.	4시에 강남역 앞에서 만나자.		
+mx03	mixed	must_fix	음, Supabase migration은 다음 주에 하는 걸로 하자.	Supabase migration은 다음 주에 하는 걸로 하자.		
+fix01	en	must_fix	we should, uh, push	we should push	plan example	
+fix02	en	must_fix	at 3, no, actually 4 p.m.	at 4 p.m.	plan example	
+fix03	ko	must_fix	3시에, 아니 4시에 강남역	4시에 강남역	plan example	
+fix04	en	must_fix	Um, I think	I think	plan example	
+fix05	en	must_fix	Um, we should go.	We should go.	recapitalize	
+fix06	en	must_fix	I think, um.	I think.		
+fix07	en	must_fix	Okay. Um, let me check.	Okay. Let me check.	recapitalize mid-text	
+fix08	en	must_fix	the the report	the report	repeat	
+fix09	en	must_fix	I I think so	I think so	repeat	
+fix10	ko	must_fix	그 그 사람이 왔어요	그 사람이 왔어요	repeat	
+fix11	ko	must_fix	음... 내일 보자	내일 보자	ellipsis	
+fix12	en	must_fix	Room 5, sorry 6 is free.	Room 6 is free.		
+fix13	mixed	must_fix	Um, 이거 내일 할게요	이거 내일 할게요	English filler in a mixed sentence	
+en05	en	must_fix	So basically what I'm trying to say is that the onboarding flow feels way too long.	The onboarding flow feels way too long.	by design: rephrasing needs the v0.3 LLM	
+en09	en	must_fix	Can you, like, check whether the Claude Code hooks are running before each commit?	Can you check whether the Claude Code hooks are running before each commit?	by design: "like" is often meaningful	
+ko03	ko	must_fix	어, 그러니까 제 말은 이 기능을 다음 주까지 끝내기는 어렵다는 거예요.	이 기능을 다음 주까지 끝내기는 어렵다는 거예요.	by design: "어" can be real ("어, 맞아")	
+ko08	ko	must_fix	그, 이제 막 시작한 프로젝트라서 아직 정해진 게 별로 없어요.	이제 막 시작한 프로젝트라서 아직 정해진 게 별로 없어요.	by design: "그" is left alone	
+mx08	mixed	must_fix	어, 그 bug는 production에서만 재현이 돼서 debugging이 어려워.	그 bug는 production에서만 재현이 돼서 debugging이 어려워.	by design: "어" can be real	
+fix14	en	must_fix	at 3 p.m., no, 4 p.m.	at 4 p.m.	by design: X must be one token starting with a digit	
+keep01	en	must_keep	the ER doctor	the ER doctor	all caps acronym	
+keep02	en	must_keep	It was a hot summer.	It was a hot summer.	word containing a filler	
+keep03	en	must_keep	The ummah gathered.	The ummah gathered.	word containing a filler	
+keep04	en	must_keep	ah, I see	ah, I see	ah stays	
+keep05	en	must_keep	I like this, you know.	I like this, you know.	like, you know stay	
+keep06	en	must_keep	So I mean it works.	So I mean it works.	so, I mean stay	
+keep07	en	must_keep	It is 5 mm wide.	It is 5 mm wide.	mm as a unit	
+keep08	en	must_keep	Use a 3 um filter.	Use a 3 um filter.	um as a unit	
+keep09	en	must_keep	Uh-oh, that broke.	Uh-oh, that broke.	hyphenated	
+keep10	en	must_keep	Mm-hmm, sounds good.	Mm-hmm, sounds good.	hyphenated	
+keep11	en	must_keep	Open um.py and er_diagram.md now.	Open um.py and er_diagram.md now.	code identifiers	
+keep12	en	must_keep	cd src/um/uh	cd src/um/uh	paths	
+keep13	en	must_keep	run --er flag	run --er flag	flags	
+keep14	en	must_keep	that that was wrong	that that was wrong	repeat not on the allowlist	
+keep15	en	must_keep	I had had enough.	I had had enough.	repeat not on the allowlist	
+keep16	en	must_keep	very very good	very very good	repeat not on the allowlist	
+keep17	en	must_keep	bye bye	bye bye	repeat not on the allowlist	
+keep18	en	must_keep	I told him, no, we can't.	I told him, no, we can't.	no digits	
+keep19	en	must_keep	Actually, wait, I forgot.	Actually, wait, I forgot.	no digits	
+keep20	en	must_keep	I have 3, but no 4 is left.	I have 3, but no 4 is left.	not a correction	
+keep21	en	must_keep	Call 555-1234, sorry about that.	Call 555-1234, sorry about that.	no digit after the marker	
+keep22	en	must_keep	We sold 3, 4, and 5.	We sold 3, 4, and 5.	number list	
+keep23	en	must_keep	I didn't go.	I didn't go.	negation	
+keep24	en	must_keep	Don't delete it.	Don't delete it.	negation	
+keep25	en	must_keep	The meeting is on 2026-11-02 at 10:30.	The meeting is on 2026-11-02 at 10:30.	dates and times	
+keep26	en	must_keep	It costs $3,400.50 now.	It costs $3,400.50 now.	numbers	
+keep27	en	must_keep	What's the capital of France?	What's the capital of France?	question stays a question	
+keep28	en	must_keep	Translate this into Korean.	Translate this into Korean.	instruction	
+keep29	en	must_keep	Call getUserName() in src/api/client.ts.	Call getUserName() in src/api/client.ts.	code	
+keep30	en	must_keep	Version 1.2.3 is out.	Version 1.2.3 is out.	version	
+keep31	en	must_keep	HMM is a hidden Markov model.	HMM is a hidden Markov model.	all caps acronym	
+keep32	ko	must_keep	어, 맞아	어, 맞아	어 stays	
+keep33	ko	must_keep	아, 그렇구나	아, 그렇구나	아 stays	
+keep34	ko	must_keep	그 사람은 이제 막 왔어.	그 사람은 이제 막 왔어.	그, 이제, 막 stay	
+keep35	ko	must_keep	약간 뭐 그런 느낌이야.	약간 뭐 그런 느낌이야.	약간, 뭐 stay	
+keep36	ko	must_keep	음악 듣는 중이야.	음악 듣는 중이야.	word containing 음	
+keep37	ko	must_keep	다음 주에 봐요.	다음 주에 봐요.	word containing 음	
+keep38	ko	must_keep	이 음 좋다.	이 음 좋다.	음 as a noun	
+keep39	ko	must_keep	낮은 음으로 불러 줘.	낮은 음으로 불러 줘.	음 with a particle	
+keep40	ko	must_keep	네 네 알겠어요.	네 네 알겠어요.	repeat not on the allowlist	
+keep41	ko	must_keep	그래 그래 좋아.	그래 그래 좋아.	repeat not on the allowlist	
+keep42	ko	must_keep	진짜 진짜 맛있어.	진짜 진짜 맛있어.	repeat not on the allowlist	
+keep43	ko	must_keep	맞아, 아니 근데 그게 아니라.	맞아, 아니 근데 그게 아니라.	no digits	
+keep44	ko	must_keep	안 갔어.	안 갔어.	negation	
+keep45	ko	must_keep	못 해요.	못 해요.	negation	
+keep46	ko	must_keep	2026년 11월 2일 오전 10시 30분에 봐요.	2026년 11월 2일 오전 10시 30분에 봐요.	dates	
+keep47	ko	must_keep	이거 영어로 번역해줘.	이거 영어로 번역해줘.	instruction	
+keep48	ko	must_keep	오늘 날씨 어때?	오늘 날씨 어때?	question	
+keep49	mixed	must_keep	오늘 meeting에서 project timeline 얘기했어.	오늘 meeting에서 project timeline 얘기했어.	mixed	
+keep50	mixed	must_keep	Claude Code로 refactoring 했더니 훨씬 깔끔해졌어.	Claude Code로 refactoring 했더니 훨씬 깔끔해졌어.	mixed	
+keep51	mixed	must_keep	API key를 environment variable로 옮겨야 할 것 같아요.	API key를 environment variable로 옮겨야 할 것 같아요.	mixed	
+keep52	mixed	must_keep	I think 이 부분은 조금 더 생각해 봐야 할 것 같아.	I think 이 부분은 조금 더 생각해 봐야 할 것 같아.	mixed	
+keep53	de	must_keep	Er hat um 3 Uhr, um es kurz zu machen, angerufen.	Er hat um 3 Uhr, um es kurz zu machen, angerufen.	Latin-script language: no rules	
+keep54	pt	must_keep	Eu tenho um carro e um, um gato.	Eu tenho um carro e um, um gato.	Latin-script language: no rules	
+keep55	es	must_keep	Um, no sé.	Um, no sé.	Latin-script language: no rules	
+keep56	fr	must_keep	Uh, 3, non, 4.	Uh, 3, non, 4.	Latin-script language: no rules	
+keep57	vi	must_keep	Um, mình đi nhé.	Um, mình đi nhé.	Latin-script language: no rules	

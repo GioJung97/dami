@@ -6,6 +6,52 @@ Nothing leaves your Mac. No subscription.
 
 ---
 
+## Roadmap
+
+Updated 2026-11-04. The frame comes first: build to an official version, v1.0, and improve after it. Work goes in here and details
+live in `docs/plans/`. The frame can change, but only on purpose. A bug that loses speech, pastes wrongly or breaks trust gets fixed
+right away, in any version.
+
+| Version | Goal | Done when | State |
+|---|---|---|---|
+| v0.1 | It works: hold a key, speak, paste | Usable every day | Done, on `main` |
+| v0.2 | It can be trusted all day | Must-test list done, owner says merge (`docs/plans/v0.2.md`). Stability stays under check in daily use | Done, on `main` |
+| v0.3 | It learns from fixes | `docs/plans/v0.3.md` §6 | In progress on branch `v0.3`, M1 next |
+| v0.4 | It cleans up text with a local LLM | `docs/plans/v0.4.md` | Outline only |
+| **v1.0** | **Anyone on a Mac can install and trust it** | See below | No plan yet |
+| After v1.0 | Improve, based on real needs | Each change on its own | Not scheduled, below |
+
+**Long-term goal:** accuracy improves for each person the more they use it, with everything staying on their Mac.
+
+**v1.0 is done when:**
+1. v0.2, v0.3 and v0.4 are finished, and unfinished screens such as "Coming later" are cleaned up.
+2. There's a `.dmg` on GitHub Releases, so people don't need Xcode. Not on the App Store and not notarized (owner, 2026-11-04), so the
+   README and download page explain the first-launch block and how to allow it in System Settings.
+3. On another Mac without Xcode: install from the `.dmg`, allow it, finish onboarding, dictate. Installing a new version over it keeps
+   the permissions. This has never been tried with the current signature.
+4. 2–5 other people have used it with consent, without losing speech, using a diagnostics export with no text in it.
+5. It's published with fresh git history, so personal notes and benchmarks in `docs/` and `bench/` aren't exposed.
+6. 8 GB Macs such as the MacBook Neo: Smart is off by default, and marked untested unless someone among those people has one. The owner
+   has no 8 GB Mac.
+7. Known limits are written down honestly.
+
+**Not scheduled.** The one list of ideas with no version yet. Pick from here when planning a version.
+
+| Area | Items |
+|---|---|
+| Evaluation | Eval tool on the app's pipeline, a larger clip set (`docs/plans/v0.3.md` §7, §5 below) |
+| Accuracy | Very short dictations (`docs/plans/v0.3.md` §7), mixed-language prompt and decoder changes, Korean terms in the prompt, a small spacing corrector, Whisper fine-tuning |
+| Recording | Hands-free stops itself after a long silence (owner's idea, low priority), streaming while speaking, Bluetooth microphone reliability, microphone ranking |
+| Models | A lighter and a heavier speech model in Settings, choosing models by hardware |
+| Learning | Showing what was learned, highlights on low-probability words, re-dictation detection, merged Dictionary |
+| Pasting | Protection when focus changes during processing, checks in apps not yet tried (Safari, Electron, Word) |
+| Features | Command mode, per-app modes |
+| Across Macs | Dictionary export and import, backups, sync |
+| Project | CI, paid Apple account and notarization if permissions don't survive updates |
+| Platforms | Windows and Linux. Today's app is tied to Swift and macOS, so this means rebuilding most of it |
+
+---
+
 ## 1. Goals and non-goals
 
 **Goals**
@@ -31,35 +77,30 @@ One native macOS menu bar app written in Swift / SwiftUI.
 ```
  ┌──────────────────────────── LocalFlow.app (menu bar, no Dock icon) ────────────────────────────┐
  │                                                                                                 │
- │  HotkeyMonitor ──► DictationController (state machine) ◄── RecordingHUD (small floating pill)   │
- │   (CGEventTap)          │                                                                       │
- │                         ├─► AudioRecorder        AVAudioEngine → 16 kHz mono Float32, in memory │
- │                         ├─► FocusedFieldReader   Accessibility: app name, text around cursor    │
- │                         ├─► Transcriber          WhisperKit (large-v3-turbo), on-device         │
- │                         ├─► CleanupPipeline      rules  →  local LLM (optional)  →  guardrails  │
- │                         ├─► TextInserter         clipboard + ⌘V, restore clipboard              │
- │                         └─► HistoryStore         SQLite: every dictation, raw + final           │
+ │  HotkeyMonitor ──► DictationController (shortcut + current recording) ◄── HUDController         │
+ │   (own thread)          │                                                                       │
+ │                         ├─► AudioRecorder        new AVAudioEngine per capture, serial queue    │
+ │                         └─► DictationProcessor   one job at a time, in order                    │
+ │                               ├─► Transcriber    WhisperKit (large-v3-turbo), on-device         │
+ │                               ├─► TextPipeline   Replacements → rules (Light) or nothing (Raw)  │
+ │                               ├─► TextInserter   clipboard + ⌘V, restore clipboard              │
+ │                               └─► Store          SQLite: every dictation, raw + final           │
  │                                                                                                 │
- │  Personalization: Dictionary, Replacements, EditLearner (learns from your corrections)          │
+ │  LocalFlowCore (package): pure logic with tests, no AppKit, WhisperKit or GRDB                  │
  └─────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Flow of one dictation**
-1. Key down → start recording, show the HUD, grab focused-field context (in parallel).
-2. Key up → stop recording.
-3. Trim silence (VAD). If there's no speech, cancel quietly.
-4. Transcribe with Whisper, biased with your vocabulary list.
-5. Clean up: rules first, then the LLM (if enabled), then sanity checks.
-6. Apply replacement rules ("클로드 코드" → "Claude Code").
-7. Paste into the focused app.
-8. Save to history. A few seconds later, re-read the field to learn from any edits you made.
+**Flow of one dictation (v0.2)**
+1. Key down → start recording and show the HUD. Pressing again during processing starts a new recording.
+2. Key up → record about 200 ms more, then stop. Too short or silent: nothing is transcribed.
+3. Queue the job with its own audio and options. The next recording doesn't wait for it.
+4. Detect the language among the user's languages, then transcribe with the matching prompt.
+5. Drop hallucinations and prompt echoes. Run `TextPipeline`.
+6. Paste when no recording is active, with a leading space if needed. Results keep their order.
+7. Save to history.
 
-**State machine** (`DictationController`)
-`idle → recording → transcribing → cleaning → inserting → idle`
-- `Esc` while recording → cancel, discard audio.
-- Recording shorter than ~0.3 s → treat as accidental tap, ignore.
-- Any stage fails → fall back to the best text we have (raw transcript), never lose speech.
-  Last result always stays available under "Paste last transcript" in the menu.
+Failure keeps the audio in memory for a retry. Esc cancels the recording, or otherwise everything pending. v0.3 adds edit
+capture, and an LLM stage if measurements justify it (`docs/plans/v0.2.md` §7).
 
 ---
 
@@ -93,8 +134,7 @@ The app is used all day, so most of the time it should hold only what one dictat
 - **Preload on key down:** the LLM starts loading while you speak, so most of its load time is hidden
   behind the recording. If it's still loading when transcription finishes, wait up to the LLM timeout,
   then fall back to rules-only text. The dictation is never blocked on a cold load.
-- **Skip the load entirely** when the gate (§4.3) would skip the LLM anyway. A short or clean English
-  dictation never touches it.
+- The gate (§4.3) can't skip this load: at key down there's no transcript to judge yet. To be revisited with the LLM in v0.3.
 - **Expected daily footprint:** ~0.5–1 GB at rest, ~2–4 GB peak while the LLM is warm.
 - Measure real numbers in Phase 2/3 (Activity Monitor + a debug memory readout in the menu).
 
@@ -116,8 +156,9 @@ Open-source models **do not learn automatically** from use. Their weights are fi
 learning around the model instead. In order of payoff:
 
 1. **Personal vocabulary → Whisper prompt.** Whisper accepts a short "prompt" of text that biases
-   spelling. We feed it your names, jargon, product names ("Supabase", "Claude Code", "김지수").
-   This is the single biggest accuracy win. Limit: ~200 tokens, so we keep the most-used terms.
+   spelling. We feed it your names, jargon and product names ("Supabase", "Claude Code"), for English
+   dictations only. This is the single biggest accuracy win. Limit: WhisperKit keeps the last 111 prompt
+   tokens (`maxTokenContext` 224 / 2 − 1), so the oldest terms are dropped silently for now.
 2. **Replacement rules.** Deterministic fixes for things Whisper always gets wrong
    ("cloud code" → "Claude Code"). Applied after cleanup.
 3. **Learn from your edits (automatic).** After pasting, LocalFlow re-reads the text field ~10 s later.
@@ -221,36 +262,68 @@ Why not one prompt for everything: the Korean sample turned English-only openers
 10 English, 10 Korean, 10 mixed, including fillers and self-corrections. Every model and prompt change
 gets scored against these (WER for English, CER for Korean) so we know if things actually improve.
 
+**Limits of this set (noted 2026-11-02):** 30 clips is too small for reliable comparisons. Ten clips per language
+means one wrong word visibly moves the score. All clips are one speaker (the owner), one Mac microphone and a quiet
+room, so results are biased toward that voice and don't show how other speakers, accents, mics or noise behave.
+Before relying on it for later decisions (speech model choice, accuracy changes), collect more data:
+- More clips from the owner across mics (built-in, AirPods/Bluetooth), rooms, speaking speed and length.
+- Other speakers with consent, especially for an open-source release.
+- Public datasets for each language (e.g. Common Voice, FLEURS; Korean: Zeroth, KsponSpeech), checking licences.
+  These have little natural code-switching, so mixed English/Korean clips still need recording.
+- Keep all audio out of git (`bench/clips/` is git-ignored). Voice is personal data, and git history keeps deleted
+  files. Move clips between Macs by AirDrop/USB or a private drive.
+
+**Plan for growing the set (owner's decision, 2026-11-02).** Split by the question each step answers:
+
+| When | Question | Data |
+|---|---|---|
+| From now, during v0.2 daily use | What does the owner's real dictation sound like? | "Save audio recordings" on, kept 90 days |
+| After v1.0, or if accuracy looks worse | Did v0.2 make accuracy worse? | The existing 30 clips, copied from the other Mac |
+| Before a speech model or accuracy change | Is a change better for the owner's speech? | 50–100 saved recordings picked and given correct text, including long dictations |
+| Around v1.0 | Does it work for other people? | Other speakers with consent, public datasets |
+
+- **The app's pipeline needs its own eval tool first.** `bench/run.py` uses `whisperkit-cli`, so the Phase 0 numbers don't
+  cover the Swift pipeline, restricted language detection, the 0.2 s tail or word timing.
+- **The clips are one sentence each, while real dictations run longer** (median 17 s in 10 dictations, a small sample).
+  The larger set must include long ones.
+- **Saved recordings expire after 90 days.** Copy the ones chosen for eval into `bench/clips/` before then. They are
+  stored unencrypted, at about 2 MB per minute.
+- **Compare mics only after the Bluetooth problem is looked at** (`docs/plans/v0.2.md`, later list). AirPods recording
+  isn't reliable yet.
+- **Not decided: who writes the correct text.** The owner by hand is the most accurate. Whisper drafts for the owner to fix
+  would mean an agent reading those dictations, which needs the owner's permission for those clips.
+
 ---
 
 ## 6. Project layout
 
 ```
 localflow/
-├── PLAN.md
-├── LocalFlow.xcodeproj
+├── PLAN.md, README.md, LICENSE, CLAUDE.md
+├── project.yml             source of the generated LocalFlow.xcodeproj (git-ignored)
 ├── LocalFlow/
-│   ├── App/            LocalFlowApp.swift, AppState.swift, PermissionsChecker.swift
-│   ├── Core/           DictationController.swift, HotkeyMonitor.swift, AudioRecorder.swift
-│   ├── Transcription/  Transcriber.swift (protocol), WhisperKitTranscriber.swift, HallucinationFilter.swift
-│   ├── Cleanup/        CleanupPipeline.swift, FillerRules.swift, LLMCleaner.swift, Guardrails.swift
-│   ├── Insertion/      TextInserter.swift, FocusedFieldReader.swift, SecureInputCheck.swift
-│   ├── Personalization/ Dictionary.swift, Replacements.swift, EditLearner.swift
-│   ├── Storage/        HistoryStore.swift (GRDB)
-│   └── UI/             RecordingHUD.swift, SettingsView.swift, HistoryView.swift, OnboardingView.swift
-├── bench/              eval clips (git-ignored), scoring script, results.md
-├── scripts/            release.sh (build → sign → .dmg → notarize)
-└── rea/                (reference tool, not part of the app)
+│   ├── App/                LocalFlowApp, AppSettings, Permissions
+│   ├── Core/               DictationController, DictationProcessor, HotkeyMonitor, AudioRecorder, InputDevices, Shortcut
+│   ├── Transcription/      Transcriber (WhisperKit)
+│   ├── Insertion/          TextInserter, FocusedField
+│   ├── Storage/            Store (GRDB)
+│   └── UI/                 HUD, MenuContent, OnboardingView, Main/ (Home, History, Dictionary, Settings)
+├── LocalFlowCore/          package: TextPipeline, CleanupRules, ReplacementEngine, HallucinationFilter, PromptLeak,
+│                           SpokenLanguage, HotkeyMachine, DictationQueue, InsertionSpacing, ModelFiles, CleanupEval
+│                           localflow-eval (executable), tests
+├── bench/                  eval clips (git-ignored), scoring scripts, results.md, cleanup_cases.tsv
+├── docs/                   plans/, sessions/
+└── scripts/                build.sh
 ```
 
-`Transcriber` and `LLMCleaner` are protocols, so models can be swapped (WhisperKit ↔ whisper.cpp,
-Qwen ↔ Gemma) without touching the rest.
+Models are direct calls for now, not behind protocols. Add a seam when a second implementation arrives.
 
 ---
 
 ## 7. Build phases
 
-Each phase ends with something you can use daily.
+Each phase ends with something you can use daily. These are the original phases. Since v0.2, work is planned by version: see
+the Roadmap at the top.
 
 ### Phase 0 — Setup and model benchmark (½ day)
 - Install Xcode (not installed on this Mac yet) and Homebrew tools (`whisperkit-cli`).
@@ -287,6 +360,13 @@ Each phase ends with something you can use daily.
   picked in onboarding (new step) and Settings → Language. Korean is verified; ja, zh, es, fr, de, pt,
   vi, hi ship with untested mixed prompts, marked "experimental". Detection now compares only the
   user's languages (pulled forward from Phase 4). Installed on a second Mac from source; `.dmg` still to do.
+- **Status (2026-11-02): v0.2 implemented on branch `v0.2`, milestones M0–M7 approved by the owner.** Queue, audio
+  reliability, microphone choice, states and retry, spacing, schema v2, retention. See `docs/plans/v0.2.md` and
+  `docs/sessions/2026-11-02-v0.2-implementation.md`. `.dmg` moved to the later list. Done conditions still open: a week
+  of daily use, and the items marked unverified in the session note.
+- **Status (2026-11-04): v0.2 finished and merged to `main`, on the owner's word.** The must-test list is done, with one item waived
+  and unverified (dictating on the fallback mic). The owner replaced the week of use with a continuous check alongside v0.3, since a
+  fixed period can't promise to catch rare problems (`CLAUDE.md`).
 
 ### Phase 3 — Cleanup (2–3 days)
 - Rules layer (fillers, repeats).
@@ -300,6 +380,11 @@ Each phase ends with something you can use daily.
 - Model lifecycle from §3.1: preload on key down, unload after idle.
 - Feed focused-field context (app name, text before the cursor) into the prompt.
 - **Done when:** "um so like let's meet at 3, no, 4" → "Let's meet at 4." in ~2 s.
+- **Status (2026-11-01): re-scoped, not started.** Split by version. v0.2 = reliability + conservative rules +
+  Raw/Light, no LLM (`docs/plans/v0.2.md`). v0.3 = edit capture first, then LLM if measurements justify it. Where
+  this phase's details disagree with that plan, the plan wins; `PLAN.md` gets re-aligned in its last milestone.
+- **Status (2026-11-02): rules layer done in v0.2.** Raw and Light modes, English and Korean rules, eval set in
+  `bench/cleanup_cases.tsv`. No LLM yet, so "um so like let's meet at 3, no, 4" isn't fully fixed; numbers are.
 
 ### Phase 4 — Bilingual tuning (1–2 days)
 - ~~en/ko-restricted language detection~~ (done 2026-10-31, generalized to English + chosen language), mixed-language prompt biasing.
@@ -312,6 +397,8 @@ Each phase ends with something you can use daily.
 - EditLearner: re-read field after paste, diff, suggest entries.
 - Per-app cleanup styles; few-shot examples from your history.
 - **Done when:** names and jargon you use often are spelled right without fixing.
+
+- **Status (2026-11-04): planned for v0.3** in `docs/plans/v0.3.md`, not started.
 
 ### Phase 6 — Later / optional
 - "Command mode": select text, hold a different key, say "make this more formal" / "영어로 번역해줘".
@@ -335,8 +422,9 @@ you'd install any other app. You don't need Xcode or the source code on those Ma
   `~/Library/Application Support/LocalFlow/Models` → warm-up. Done once per Mac.
 - Optional "offline installer": a model folder you can copy from another Mac (or a USB stick)
   instead of downloading.
+  It must include both `models/argmaxinc/whisperkit-coreml/` and `models/openai/whisper-large-v3/` (the tokenizer).
 
-**Adapts to the hardware it's on** (detected at first launch, changeable in Settings)
+**Adapts to the hardware it's on** (planned, not built: every Mac gets large-v3-turbo 632 MB today)
 
 | Mac | Speech model | Cleanup | Expected feel |
 |---|---|---|---|
@@ -344,7 +432,7 @@ you'd install any other app. You don't need Xcode or the source code on those Ma
 | 16 GB+ | large-v3-turbo 632 MB | Smart (1.7B, or 4B if the benchmark says so) | Full experience |
 | 32 GB+ | large-v3 or turbo | Smart, bigger LLM option (7–8B) | Best quality |
 
-- Requirements: **Apple Silicon (M1 or newer), macOS 14 Sonoma or newer.** Intel Macs are out of scope
+- Requirements: **Apple Silicon (M1 or newer, or the MacBook Neo's A18 Pro), macOS 14 Sonoma or newer.** Intel Macs are out of scope
   (too slow for this without the Neural Engine).
 - A built-in "Test my Mac" button records a sample sentence and reports latency, so you can pick
   models per machine.
@@ -381,6 +469,7 @@ and (if you have a paid account) notarizes it. You build on this Mac, then insta
 | Clipboard restore races with slow apps | Restore after ~250 ms delay; configurable; AX insertion fallback |
 | LLM rewrites too much or "answers" the text | Strict prompt + length/language guardrails + timeout fallback |
 | Mixed-language accuracy lower than Wispr's cloud models | Measure on eval set; dictionary + prompt biasing; fine-tuning later |
+| Eval set too small and one-speaker (30 clips, owner only), so decisions overfit one voice | Grow the set before those decisions: more conditions, other speakers, public datasets (§5) |
 | Permissions reset after rebuilds/updates | Stable signing identity from day one |
 | Too slow on a smaller Mac (8 GB) | Hardware-based model auto-pick + "Test my Mac" latency check |
 | First run is slow (model compile/download) | Download + warm-up during onboarding, with a progress bar |

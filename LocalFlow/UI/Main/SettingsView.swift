@@ -1,8 +1,10 @@
+import LocalFlowCore
 import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var controller: DictationController
     @ObservedObject private var settings = AppSettings.shared
+    @ObservedObject private var navigation = Navigation.shared
     @State private var tab = Tab.shortcut
 
     enum Tab: String, CaseIterable, Identifiable {
@@ -49,11 +51,26 @@ struct SettingsView: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear(perform: showRequestedTab)
+        .onChange(of: navigation.requestedSettingsTab) { showRequestedTab() }
+    }
+
+    private func showRequestedTab() {
+        guard let requested = navigation.requestedSettingsTab.flatMap(Tab.init(rawValue:)) else { return }
+        tab = requested
+        navigation.requestedSettingsTab = nil
     }
 
     @ViewBuilder private var general: some View {
         Section {
             Toggle("Open at login", isOn: Binding(get: { settings.launchAtLogin }, set: { settings.launchAtLogin = $0 }))
+            MicrophonePicker(label: "Microphone")
+            VStack(alignment: .leading, spacing: 6) {
+                CleanupModePicker(label: "Cleanup")
+                Text(settings.cleanupMode.explanation)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
             Toggle("Play sounds when recording starts and stops", isOn: $settings.playSounds)
             Picker("Recording indicator position", selection: $settings.hudPosition) {
                 ForEach(AppSettings.HUDPosition.allCases) { Text($0.label).tag($0) }
@@ -237,26 +254,35 @@ private struct ModelsSection: View {
             LabeledContent(Transcriber.modelDisplayName) {
                 Text(modelStatus).foregroundStyle(controller.isModelReady ? .green : .secondary)
             }
+            if case .failed(let problem) = controller.modelStatus {
+                HStack {
+                    Text(problem.message).foregroundStyle(.orange)
+                    Spacer()
+                    Button(problem.actionTitle) { controller.retryModel() }
+                }
+            }
             LabeledContent("Size", value: "\(Transcriber.modelSizeMB) MB")
             LabeledContent("LocalFlow memory in use", value: MemoryInfo.footprintText)
             LabeledContent("Typical speed", value: typicalSpeed)
             LabeledContent("This Mac", value: MemoryInfo.macDescription)
         }
         Section("Cleanup model") {
-            LabeledContent("Removes fillers like \"um\" and \"음\"") {
+            LabeledContent("Rewrites sentences") {
                 Text("Not installed").foregroundStyle(.secondary)
             }
-            Text("Comes with Smart mode in a later update. It will load only while you dictate.")
+            Text("Comes with Smart mode in a later update. It will load only while you dictate. Light mode doesn't need it.")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
         }
     }
 
     private var modelStatus: String {
-        if case .loadingModel(let progress) = controller.state {
-            return progress < 1 ? "Downloading \(Int(progress * 100))%" : "Loading…"
+        switch controller.modelStatus {
+        case .downloading(let progress): "Downloading \(Int(progress * 100))%"
+        case .loading: "Loading…"
+        case .ready: "Installed"
+        case .failed: "Not available"
         }
-        return "Installed"
     }
 
     private var typicalSpeed: String {
@@ -297,17 +323,26 @@ enum MemoryInfo {
 private struct PrivacySection: View {
     @ObservedObject private var settings = AppSettings.shared
     @State private var confirmingDelete = false
+    @State private var audioBytes: Int64 = 0
+
+    private func prune() {
+        Store.shared.prune(retentionDays: settings.retentionDays, audioRetentionDays: settings.audioRetentionDays)
+        audioBytes = Store.shared.audioBytesUsed()
+    }
 
     var body: some View {
         Section {
             Label("Everything runs on this Mac. Your voice and text are never uploaded.", systemImage: "lock.fill")
                 .foregroundStyle(.blue)
+            Text("Text history is stored unencrypted on this Mac until you delete it. Audio is only saved if you turn that on below.")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
         }
         Section {
             Picker("Keep history for", selection: $settings.retentionDays) {
                 ForEach(AppSettings.retentionChoices, id: \.days) { Text($0.label).tag($0.days) }
             }
-            .onChange(of: settings.retentionDays) { _, days in Store.shared.prune(retentionDays: days) }
+            .onChange(of: settings.retentionDays) { prune() }
             Toggle(isOn: $settings.saveAudio) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Save audio recordings")
@@ -317,6 +352,15 @@ private struct PrivacySection: View {
                 }
             }
             .disabled(settings.retentionDays < 0)
+            if settings.saveAudio {
+                Picker("Keep recordings for", selection: $settings.audioRetentionDays) {
+                    ForEach(AppSettings.audioRetentionChoices, id: \.self) { Text("\($0) days").tag($0) }
+                }
+                .onChange(of: settings.audioRetentionDays) { prune() }
+            }
+            if settings.saveAudio || audioBytes > 0 {
+                LabeledContent("Space used by recordings", value: ByteCountFormatter.string(fromByteCount: audioBytes, countStyle: .file))
+            }
         }
         Section {
             Button("Delete all history…", role: .destructive) { confirmingDelete = true }
@@ -326,5 +370,7 @@ private struct PrivacySection: View {
                     Text("Your Dictionary is kept. This can't be undone.")
                 }
         }
+        .onAppear { audioBytes = Store.shared.audioBytesUsed() }
+        .onChange(of: settings.saveAudio) { audioBytes = Store.shared.audioBytesUsed() }
     }
 }

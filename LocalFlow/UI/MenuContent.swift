@@ -1,3 +1,4 @@
+import LocalFlowCore
 import SwiftUI
 
 /// The panel that drops down from the menu bar icon.
@@ -25,6 +26,26 @@ struct MenuContent: View {
                 Divider().padding(.vertical, 4)
             }
 
+            ForEach(controller.failedDictations) { failed in
+                HStack(spacing: 2) {
+                    Button { controller.retry(failed) } label: {
+                        Label("Failed dictation · Retry", systemImage: "arrow.clockwise")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(MenuRowStyle())
+                    .help(failed.message)
+                    Button { controller.dismiss(failed) } label: {
+                        Image(systemName: "xmark").font(.system(size: 10, weight: .semibold))
+                    }
+                    .buttonStyle(MenuRowStyle())
+                    .frame(width: 28)
+                    .accessibilityLabel("Dismiss failed dictation")
+                }
+            }
+            if !controller.failedDictations.isEmpty {
+                Divider().padding(.vertical, 4)
+            }
+
             if settings.secondLanguage != nil {
                 HStack {
                     Text("Language").foregroundStyle(.secondary).font(.system(size: 12))
@@ -40,6 +61,27 @@ struct MenuContent: View {
                 .padding(.vertical, 6)
             }
 
+            HStack {
+                Text("Cleanup").foregroundStyle(.secondary).font(.system(size: 12))
+                Spacer()
+                CleanupModePicker(label: "Cleanup")
+                    .labelsHidden()
+                    .frame(width: 120)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .help(settings.cleanupMode.explanation)
+
+            HStack {
+                Text("Microphone").foregroundStyle(.secondary).font(.system(size: 12))
+                Spacer()
+                MicrophonePicker(label: "Microphone")
+                    .labelsHidden()
+                    .frame(width: 180)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+
             if !controller.recent.isEmpty {
                 Divider().padding(.vertical, 4)
                 Text("RECENT · CLICK TO PASTE AGAIN")
@@ -47,7 +89,8 @@ struct MenuContent: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                ForEach(controller.recent) { dictation in
+                ForEach(controller.recent) { item in
+                    let dictation = item.dictation
                     Button {
                         dismiss()
                         controller.pasteAgain(dictation)

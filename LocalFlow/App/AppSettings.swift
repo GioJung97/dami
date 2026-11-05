@@ -1,4 +1,5 @@
 import Foundation
+import LocalFlowCore
 import ServiceManagement
 
 /// User preferences, persisted in UserDefaults.
@@ -27,6 +28,8 @@ final class AppSettings: ObservableObject {
 
     /// Days to keep history. 0 = forever, -1 = don't keep.
     static let retentionChoices: [(days: Int, label: String)] = [(7, "7 days"), (30, "30 days"), (0, "Forever"), (-1, "Don't keep")]
+    /// Days to keep saved recordings, separate from text.
+    static let audioRetentionChoices = [7, 30, 90]
 
     private let defaults = UserDefaults.standard
 
@@ -41,9 +44,13 @@ final class AppSettings: ObservableObject {
         }
     }
     @Published var keepEnglishTerms: Bool { didSet { defaults.set(keepEnglishTerms, forKey: "keepEnglishInKorean") } }
+    @Published var cleanupMode: CleanupMode { didSet { defaults.set(cleanupMode.rawValue, forKey: "cleanupMode") } }
+    /// The microphone to record from, by Core Audio UID. Nil follows the macOS default.
+    @Published var inputDeviceUID: String? { didSet { defaults.set(inputDeviceUID, forKey: "inputDeviceUID") } }
     @Published var playSounds: Bool { didSet { defaults.set(playSounds, forKey: "playSounds") } }
     @Published var hudPosition: HUDPosition { didSet { defaults.set(hudPosition.rawValue, forKey: "hudPosition") } }
     @Published var retentionDays: Int { didSet { defaults.set(retentionDays, forKey: "retentionDays") } }
+    @Published var audioRetentionDays: Int { didSet { defaults.set(audioRetentionDays, forKey: "audioRetentionDays") } }
     @Published var saveAudio: Bool { didSet { defaults.set(saveAudio, forKey: "saveAudio") } }
     @Published var paused = false
     @Published var hasCompletedOnboarding: Bool { didSet { defaults.set(hasCompletedOnboarding, forKey: "hasCompletedOnboarding") } }
@@ -70,9 +77,12 @@ final class AppSettings: ObservableObject {
         secondLanguage = second
         language = second == nil ? .english : savedMode == "korean" ? .second : LanguageMode(rawValue: savedMode ?? "") ?? .auto
         keepEnglishTerms = defaults.object(forKey: "keepEnglishInKorean") as? Bool ?? true
+        cleanupMode = CleanupMode(rawValue: defaults.string(forKey: "cleanupMode") ?? "") ?? .light
+        inputDeviceUID = defaults.string(forKey: "inputDeviceUID")
         playSounds = defaults.object(forKey: "playSounds") as? Bool ?? true
         hudPosition = HUDPosition(rawValue: defaults.string(forKey: "hudPosition") ?? "") ?? .bottomCenter
-        retentionDays = defaults.object(forKey: "retentionDays") as? Int ?? 30
+        retentionDays = defaults.object(forKey: "retentionDays") as? Int ?? 0
+        audioRetentionDays = defaults.object(forKey: "audioRetentionDays") as? Int ?? 30
         saveAudio = defaults.bool(forKey: "saveAudio")
         hasCompletedOnboarding = defaults.bool(forKey: "hasCompletedOnboarding")
     }

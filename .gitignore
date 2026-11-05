@@ -4,6 +4,8 @@ bench/results/
 bench/models/
 .DS_Store
 build/
+.build/
+.swiftpm/
 *.xcodeproj/xcuserdata/
 *.xcodeproj/project.xcworkspace/xcuserdata/
 __pycache__/

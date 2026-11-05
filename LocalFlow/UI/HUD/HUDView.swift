@@ -5,6 +5,32 @@ struct HUDView: View {
     @ObservedObject var controller: HUDController
 
     var body: some View {
+        let atBottom = AppSettings.shared.hudPosition == .bottomCenter
+        VStack(spacing: 6) {
+            if atBottom { noteLabel }
+            phaseView
+            if !atBottom { noteLabel }
+        }
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: atBottom ? .bottom : .top)
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder private var noteLabel: some View {
+        if let note = controller.note {
+            Text(note)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .padding(.horizontal, 10)
+                .frame(height: 22)
+                .background(Capsule().fill(Color(white: 0.11).opacity(0.92)))
+                .transition(.opacity)
+        }
+    }
+
+    private var phaseView: some View {
         ZStack {
             switch controller.phase {
             case .hidden:
@@ -13,29 +39,41 @@ struct HUDView: View {
                 pill {
                     Circle().fill(Color(red: 1, green: 0.27, blue: 0.23)).frame(width: 7, height: 7)
                     LevelBars(levels: controller.levels)
+                    ElapsedTime(since: controller.recordingStartedAt)
                     if handsFree {
                         Text("Tap to stop").font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.85))
-                    } else {
-                        ElapsedTime(since: controller.recordingStartedAt)
                     }
                 }
-            case .transcribing:
-                pill { ThinkingDots() }
+            case .transcribing(let waiting):
+                pill {
+                    ThinkingDots()
+                    if waiting > 0 {
+                        Text("Processing · \(waiting) waiting").font(.system(size: 11, weight: .medium)).foregroundStyle(.white)
+                    }
+                }
             case .pasted:
                 pill {
                     Image(systemName: "checkmark").font(.system(size: 12, weight: .bold))
                         .foregroundStyle(Color(red: 0.19, green: 0.82, blue: 0.35))
                 }
-            case .copiedOnly:
+            case .copied(let text):
                 pill {
                     Image(systemName: "doc.on.clipboard").font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(Color(red: 1, green: 0.84, blue: 0.04))
-                    Text("Copied · press ⌘V").font(.system(size: 11, weight: .medium)).foregroundStyle(.white)
+                    Text(text).font(.system(size: 11, weight: .medium)).foregroundStyle(.white).lineLimit(1)
+                }
+            case .message(let message):
+                pill {
+                    Text(message.text).font(.system(size: 11, weight: .medium)).foregroundStyle(.white).lineLimit(1)
+                    if let title = message.actionTitle {
+                        Button(title) { controller.performMessageAction() }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color(red: 0.4, green: 0.72, blue: 1))
+                    }
                 }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .combine)
     }
 
     private func pill<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
