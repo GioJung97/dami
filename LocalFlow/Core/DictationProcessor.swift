@@ -10,7 +10,11 @@ final class DictationProcessor {
         case pasted
         case copied(TextInserter.Outcome.Reason)
         case noSpeech
+        /// A retry of a drop came back empty again.
+        case stillNoSpeech
         case failed(FailedDictation)
+        /// Dropped, but kept to retry or paste anyway.
+        case dropped(FailedDictation)
     }
 
     /// One recording and everything needed to process it, fixed when the recording ended.
@@ -24,14 +28,26 @@ final class DictationProcessor {
         let appBundleID: String?
     }
 
-    /// A dictation that can be tried again. Its audio stays in memory only, until then.
+    /// A dictation that can be tried again. Its audio, and a filtered text, stay in memory only, until then.
     struct FailedDictation: Identifiable, Sendable {
+        enum Kind: Sendable {
+            /// Transcription failed or timed out. Retry runs the same job.
+            case failed
+            /// Whisper returned nothing. `job` is already the retry with the other language.
+            case empty
+            /// Only a stock phrase, which the person may really have said. It can be pasted anyway.
+            case filtered(text: String)
+        }
+
         let id = UUID()
         let job: Job
         let message: String
+        var kind: Kind = .failed
+        /// What Whisper returned, for "Paste anyway".
+        fileprivate var transcribed: Transcribed?
     }
 
-    private struct Transcribed: Sendable {
+    fileprivate struct Transcribed: Sendable {
         let result: Transcriber.Result
         let latency: TimeInterval
     }
@@ -100,12 +116,16 @@ final class DictationProcessor {
         queue.cancelAll()
     }
 
-    /// Tries a failed dictation again. The result pastes at the current cursor.
+    /// Tries a failed dictation again, or pastes a filtered one anyway. The result pastes at the current cursor.
     func retry(_ id: FailedDictation.ID) {
         guard let index = failed.firstIndex(where: { $0.id == id }) else { return }
-        let job = failed.remove(at: index).job
+        let dictation = failed.remove(at: index)
         onChange?()
-        queue.add(job)
+        if case .filtered = dictation.kind, let transcribed = dictation.transcribed {
+            Task { await deliver(dictation.job, transcribed, pastingAnyway: true) }
+        } else {
+            queue.add(dictation.job)
+        }
     }
 
     func dismiss(_ id: FailedDictation.ID) {
@@ -128,13 +148,12 @@ final class DictationProcessor {
         isSlow = false
     }
 
-    private func deliver(_ job: Job, _ transcribed: Transcribed) async {
+    private func deliver(_ job: Job, _ transcribed: Transcribed, pastingAnyway: Bool = false) async {
         let result = transcribed.result
         log.info("[\(result.language, privacy: .public)] \(String(format: "%.1f", job.seconds))s audio → \(String(format: "%.2f", transcribed.latency))s")
 
-        if HallucinationFilter.isHallucination(result.text) {
-            Self.countDrop(.hallucination, audioSeconds: job.seconds)
-            onOutcome?(.noSpeech)
+        if !pastingAnyway, HallucinationFilter.isHallucination(result.text) {
+            drop(job, transcribed)
             return
         }
         if PromptLeak.isLeak(output: result.text, prompt: result.prompt, vocabulary: result.promptVocabulary) {
@@ -148,9 +167,11 @@ final class DictationProcessor {
         // Nothing but fillers.
         guard !processed.final.isEmpty else {
             Self.countDrop(.onlyFillers, audioSeconds: job.seconds)
+            if job.options.isDropRetry { Self.countRetry(.stillEmpty) }
             onOutcome?(.noSpeech)
             return
         }
+        if pastingAnyway { Self.countRetry(.pastedAnyway) } else if job.options.isDropRetry { Self.countRetry(.text) }
         let insertion = await TextInserter.insert(processed.final, language: result.language)
         let target = TextInserter.takeLastTarget()
         let saved = record(Dictation(
@@ -183,17 +204,59 @@ final class DictationProcessor {
         }
     }
 
-    /// Numbers only, read with `defaults read com.localflow.app dropCounts`. See `DropStats`.
+    /// An empty result or a stock phrase. Kept in memory for a retry or "Paste anyway" when it's long enough to be speech.
+    private func drop(_ job: Job, _ transcribed: Transcribed) {
+        let result = transcribed.result
+        let isEmpty = result.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        Self.countDrop(isEmpty ? .empty : .hallucination, audioSeconds: job.seconds)
+        if job.options.isDropRetry { Self.countRetry(isEmpty ? .stillEmpty : .filtered) }
+
+        if isEmpty, job.options.isDropRetry {
+            onOutcome?(.stillNoSpeech)
+            return
+        }
+        guard job.seconds >= DropRetry.minimumSeconds else {
+            onOutcome?(.noSpeech)
+            return
+        }
+        let dictation: FailedDictation
+        if isEmpty {
+            var options = job.options
+            options.isDropRetry = true
+            options.forcedLanguage = DropRetry.language(after: result.language, second: options.secondLanguage?.code)
+            let retry = Job(
+                audio: job.audio, seconds: job.seconds, options: options, mode: job.mode,
+                inputTransport: job.inputTransport, appName: job.appName, appBundleID: job.appBundleID
+            )
+            dictation = FailedDictation(job: retry, message: "No speech recognized", kind: .empty)
+        } else {
+            let text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            dictation = FailedDictation(job: job, message: "Filtered “\(text)”", kind: .filtered(text: text), transcribed: transcribed)
+        }
+        failed = Array((failed + [dictation]).suffix(Self.maxFailed))
+        onOutcome?(.dropped(dictation))
+    }
+
+    /// Numbers only, read with `scripts/health-check.sh`. See `DropStats`. The undated `dropCounts` from before v0.3.1 stays as it was.
     static func countDrop(_ reason: DropStats.Reason, audioSeconds: Double) {
+        count(DropStats.key(reason, audioSeconds: audioSeconds, on: Date()))
+    }
+
+    static func countRetry(_ result: DropStats.RetryResult) {
+        count(DropStats.retryKey(result, on: Date()))
+    }
+
+    private static func count(_ key: String) {
         let defaults = UserDefaults.standard
-        let counts = defaults.dictionary(forKey: "dropCounts") as? [String: Int] ?? [:]
-        defaults.set(DropStats.adding(reason, audioSeconds: audioSeconds, to: counts), forKey: "dropCounts")
+        let counts = defaults.dictionary(forKey: "dropCountsByDay") as? [String: Int] ?? [:]
+        defaults.set(DropStats.adding(key, to: counts), forKey: "dropCountsByDay")
     }
 
     private func fail(_ job: Job, _ error: Error) {
         guard !(error is CancellationError) else { return }
         log.error("Dictation failed: \(error.localizedDescription, privacy: .public)")
         Self.countDrop(.failed, audioSeconds: job.seconds)
+        if job.options.isDropRetry { Self.countRetry(.failed) }
         let dictation = FailedDictation(job: job, message: error is TimedOut ? "Took too long" : "Couldn't transcribe")
         failed = Array((failed + [dictation]).suffix(Self.maxFailed))
         onOutcome?(.failed(dictation))

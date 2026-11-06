@@ -6,7 +6,11 @@ db="$HOME/Library/Application Support/LocalFlow/LocalFlow.sqlite"
 echo "== Failures by kind and day"
 defaults read $domain healthCounts 2>/dev/null || echo "none"
 
-echo "== Dictations that pasted nothing (real silence counts too)"
+echo "== Dictations that pasted nothing, by reason, length and day (real silence counts too)"
+echo "   empty = Whisper returned nothing; retry.* = what a Retry or Paste anyway led to"
+defaults read $domain dropCountsByDay 2>/dev/null || echo "none"
+
+echo "== Before v0.3.1: no day, and empty results counted as hallucination"
 defaults read $domain dropCounts 2>/dev/null || echo "none"
 
 echo "== App errors in the system log (only reaches back so far)"
