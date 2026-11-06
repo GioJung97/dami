@@ -15,7 +15,9 @@ public struct ReplacementRule: Equatable, Sendable {
 }
 
 /// Applies the Dictionary's replacement rules to a transcript.
-/// Latin-script rules match whole words, case-insensitively. Hangul rules match exactly.
+/// Rules for languages that put spaces between words (English, Spanish, Vietnamese, Hindi…) match whole words, ignoring case.
+/// Hangul rules match whole words with up to two particles after. Japanese, Chinese and Thai, which don't put spaces between words,
+/// match exactly.
 public enum ReplacementEngine {
     public struct Outcome: Equatable, Sendable {
         public var text: String
@@ -59,11 +61,27 @@ public enum ReplacementEngine {
         return CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters).contains(scalar)
     }
 
-    /// Latin-script rules match whole words, case-insensitively. Anything else matches exactly.
+    /// Scripts written without spaces between words, where a word can't be told apart inside text.
+    private static let unspacedScripts = "\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Thai}\\p{Script=Lao}\\p{Script=Khmer}\\p{Script=Myanmar}"
+    /// A letter, mark or digit of a spaced language: what continues a word. Hangul and unspaced scripts don't, so "cloud code로"
+    /// still matches a rule for "cloud code".
+    private static let wordCharacter = "[[\\p{L}\\p{M}\\p{N}]--[\\p{Script=Hangul}\(unspacedScripts)]]"
+
     private static func regex(for find: String) -> NSRegularExpression? {
         let escaped = NSRegularExpression.escapedPattern(for: find)
-        let isLatin = find.range(of: "^[A-Za-z0-9 .'-]+$", options: .regularExpression) != nil
-        let pattern = isLatin ? "(?<![A-Za-z0-9])\(escaped)(?![A-Za-z0-9])" : escaped
-        return try? NSRegularExpression(pattern: pattern, options: isLatin ? [.caseInsensitive] : [])
+        let isUnspaced = find.range(of: "[\(unspacedScripts)]", options: .regularExpression) != nil
+        let isSpaced = !isUnspaced && !KoreanParticles.containsHangul(find)
+        let pattern: String
+        if isSpaced {
+            pattern = "(?<!\(wordCharacter))\(escaped)(?!\(wordCharacter))"
+        } else if KoreanParticles.containsHangul(find) {
+            // No Hangul right before, and after it the end of the word or particles, so "세" leaves "확인하세요" alone. The
+            // particles stay in the text: only `find` is replaced.
+            let particles = KoreanParticles.all.map(NSRegularExpression.escapedPattern(for:)).joined(separator: "|")
+            pattern = "(?<!\\p{Script=Hangul})\(escaped)(?=(?:\(particles)){0,\(KoreanParticles.maxInARow)}(?!\\p{Script=Hangul}))"
+        } else {
+            pattern = escaped
+        }
+        return try? NSRegularExpression(pattern: pattern, options: isSpaced ? [.caseInsensitive] : [])
     }
 }

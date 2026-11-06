@@ -32,7 +32,7 @@ public enum FixSuggestion {
         // A Korean particle follows the word: "로컬플로우로" → "LocalFlow로" should learn "로컬플로우" → "LocalFlow". Only for one word
         // on each side, and only a known particle, since a shared ending like "어" in "끝났어" → "끝냈어" is part of the verb.
         if removed.count == 1, added.count == 1,
-           let particle = particles.first(where: { find.hasSuffix($0) && replace.hasSuffix($0) && find.count > $0.count && replace.count > $0.count }) {
+           let particle = KoreanParticles.all.first(where: { find.hasSuffix($0) && replace.hasSuffix($0) && find.count > $0.count && replace.count > $0.count }) {
             find.removeLast(particle.count)
             replace.removeLast(particle.count)
         }
@@ -40,14 +40,10 @@ public enum FixSuggestion {
         find = find.trimmingCharacters(in: .punctuationCharacters)
         replace = replace.trimmingCharacters(in: .punctuationCharacters)
         guard !find.isEmpty, !replace.isEmpty, find != replace else { return nil }
+        // "세" → "네" would also turn "확인하세요" into "확인하네요". A one-syllable rule can still be added by hand in Dictionary.
+        guard !KoreanParticles.isSingleSyllable(find) else { return nil }
         return Pair(find: find, replace: replace)
     }
-
-    /// Longest first, so "으로" wins over "로".
-    private static let particles = [
-        "에서는", "에게서", "이랑", "한테", "에게", "에서", "까지", "부터", "처럼", "보다", "으로", "로는", "은", "는", "이", "가", "을", "를",
-        "에", "의", "와", "과", "도", "만", "로", "랑",
-    ].sorted { $0.count > $1.count }
 }
 
 /// Vocabulary that fits in Whisper's prompt. Past its limit WhisperKit keeps only the last tokens, cutting terms silently, so this

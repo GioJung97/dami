@@ -136,7 +136,7 @@ struct DictionaryView: View {
                 .width(32)
             }
             .frame(minHeight: 240)
-            Text("English words match as whole words, ignoring case. Korean matches exactly.")
+            Text("Rules match whole words, ignoring case. Korean also matches with particles such as 을, 에서 or 에서도 after. Japanese, Chinese and Thai match anywhere in the text.")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
         }

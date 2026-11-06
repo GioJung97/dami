@@ -7,7 +7,7 @@ final class FixSuggestionTests: XCTestCase {
     }
 
     func testOneWordInASentence() {
-        XCTAssertEqual(pair("오늘 회의는 세 시에 시작해요", "오늘 회의는 네 시에 시작해요"), .init(find: "세", replace: "네"))
+        XCTAssertEqual(pair("오늘 회의는 다섯 시에 시작해요", "오늘 회의는 여섯 시에 시작해요"), .init(find: "다섯", replace: "여섯"))
     }
 
     func testEnglishWords() {
@@ -41,7 +41,8 @@ final class FixSuggestionTests: XCTestCase {
     }
 
     func testPreviewShowsWholeWords() {
-        XCTAssertEqual(ReplacementEngine.matchedWords("제안", in: "제안서를 보내고 제안을 들었어"), ["제안서를", "제안을"])
+        // "제안서" is another word now, so only "제안을" would change.
+        XCTAssertEqual(ReplacementEngine.matchedWords("제안", in: "제안서를 보내고 제안을 들었어"), ["제안을"])
         XCTAssertEqual(ReplacementEngine.matchedWords("cloud", in: "Cloud Code, cloudy day"), ["Cloud"])
     }
 
