@@ -44,11 +44,18 @@ in practice, it's `previousDictationWindow` in `InsertionSpacing`.
 
 ## Very short dictations
 
-The owner reports that very short speech is often recognized poorly (2026-11-04). Not investigated or measured yet, and to be
-looked at on its own later. Starting points, none confirmed: presses under 0.3 s are dropped as accidental, the mic takes
-0.13–0.18 s to start so the first sound may be cut, the hallucination filter removes some short outputs, and Whisper has little
-context to work with. A short Korean test clip also returned no words on its first run in M7. Of 158 saved dictations, none is
-under 1 s of audio, but outputs treated as no speech aren't saved, so this doesn't give a failure rate.
+**Fixed (2026-11-05).** Clips of about 1–1.4 s often came back empty and showed "No speech recognized". Numbers-only diagnosis on the
+owner's Mac: neither VAD nor the no-speech thresholds caused it. With the language prompt, Whisper ended at once. Retrying without the
+prompt and with 0.5 s of silence on each side brought back all 5 empty clips, while silence alone brought back none. The app now does
+that retry, only when a result is empty. Owner tested: 8 short phrases in Korean and English, 6 needed the retry, all pasted, about
+0.9 s each.
+
+**Still open:**
+- **Language detection on very short clips.** A 0.7 s Korean "네" was detected as English and came out as an English word. Detection
+  has very little sound to go on.
+- **Longer clips dropped as empty.** Before the diagnosis, one 3–10 s and one over-10 s dictation came back empty on 2026-11-05. The
+  retry may or may not catch these: the drop counters will show if it keeps happening.
+- Empty results are counted as `hallucination` in the drop counters, so that reason also includes them.
 
 ## Made-up text during long pauses
 
@@ -95,3 +102,9 @@ on `hasCompletedOnboarding`, so History stays reachable if a permission is remov
 
 **Not done:** a download ETA. Nice to have. It shows "X of 632 MB" today. If added, keep it rough ("about 2 min left"), and check first
 that the download's progress moves smoothly.
+
+## SwiftUI "Publishing changes from within view updates" (2026-11-05)
+
+The system log showed this runtime warning three times on 2026-11-05, around saving fixes in History during M3 and M4 testing. It
+hasn't appeared since, including the M2 and offline tests. The likely place is `HistoryView`'s `openRequestedFix` or a state change
+during a view update. Not investigated. It loses nothing seen so far, but it can make a view skip an update.

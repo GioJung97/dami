@@ -52,6 +52,8 @@ final class AppSettings: ObservableObject {
     @Published var retentionDays: Int { didSet { defaults.set(retentionDays, forKey: "retentionDays") } }
     @Published var audioRetentionDays: Int { didSet { defaults.set(audioRetentionDays, forKey: "audioRetentionDays") } }
     @Published var saveAudio: Bool { didSet { defaults.set(saveAudio, forKey: "saveAudio") } }
+    /// Watch pasted text for a fix made in place (v0.3 M2). On by default; only the pasted text is kept, on this Mac.
+    @Published var learnFromFixes: Bool { didSet { defaults.set(learnFromFixes, forKey: "learnFromFixes") } }
     @Published var paused = false
     @Published var hasCompletedOnboarding: Bool { didSet { defaults.set(hasCompletedOnboarding, forKey: "hasCompletedOnboarding") } }
     /// The setup step someone is on (`SetupStep`), so setup can continue after the app is reopened.
@@ -86,6 +88,7 @@ final class AppSettings: ObservableObject {
         retentionDays = defaults.object(forKey: "retentionDays") as? Int ?? 0
         audioRetentionDays = defaults.object(forKey: "audioRetentionDays") as? Int ?? 30
         saveAudio = defaults.bool(forKey: "saveAudio")
+        learnFromFixes = defaults.object(forKey: "learnFromFixes") as? Bool ?? true
         hasCompletedOnboarding = defaults.bool(forKey: "hasCompletedOnboarding")
         setupStep = defaults.integer(forKey: "setupStep")
     }

@@ -3,6 +3,13 @@ import Combine
 import LocalFlowCore
 import os
 
+/// Vocabulary terms that don't fit in Whisper's prompt, for the Dictionary screen. Known once the model is loaded.
+@MainActor
+final class VocabularyFit: ObservableObject {
+    static let shared = VocabularyFit()
+    @Published var leftOut: Set<String> = []
+}
+
 /// The shortcut and the current recording. A finished recording goes to `DictationProcessor`, so
 /// the next one can start right away.
 @MainActor
@@ -136,6 +143,21 @@ final class DictationController: ObservableObject {
             .sink { [weak self] in self?.objectWillChange.send() }
             .store(in: &cancellables)
 
+        store.$vocabulary
+            .dropFirst()
+            .sink { [weak self] _ in DispatchQueue.main.async { self?.refreshVocabularyFit() } }
+            .store(in: &cancellables)
+
+        // A fix in History changes what Recent shows and pastes.
+        store.$revision
+            .sink { [weak self] _ in
+                guard let self else { return }
+                recent = recent.map { item in
+                    self.store.dictations.first { $0.id == item.dictation.id && $0.id != nil }.map(RecentDictation.init) ?? item
+                }
+            }
+            .store(in: &cancellables)
+
         startPruning()
         recent = store.dictations.prefix(3).map(RecentDictation.init)
         startHotkeyWhenPermitted()
@@ -179,10 +201,12 @@ final class DictationController: ObservableObject {
                     }
                 }
                 setModelStatus(.ready)
+                refreshVocabularyFit()
                 log.info("Model loaded")
             } catch {
                 setModelStatus(.failed(error as? ModelProblem ?? .loadFailed))
                 log.error("Model unavailable: \(error.localizedDescription, privacy: .public)")
+                HealthCounter.count(.modelUnavailable)
             }
             // Dictations made while it loaded are moving now, or just failed.
             if !isRecording, isWorking { showWork() }
@@ -199,11 +223,26 @@ final class DictationController: ObservableObject {
         hotkey.isSuspended = suspended
     }
 
+    /// The terms a dictation would send, same filter as `recordingStopped`.
+    private var promptTerms: [String] {
+        let second = settings.secondLanguage
+        return store.vocabulary.map(\.term).filter { term in second?.script?.matches(term) != true }
+    }
+
+    private func refreshVocabularyFit() {
+        let terms = promptTerms
+        Task {
+            guard await transcriber.isLoaded else { return }
+            let fit = await transcriber.fittingVocabulary(terms)
+            VocabularyFit.shared.leftOut = Set(terms).subtracting(fit)
+        }
+    }
+
     func pasteAgain(_ dictation: Dictation) {
         Task {
             // Give the menu or window time to close so focus returns to the previous app.
             try? await Task.sleep(for: .milliseconds(150))
-            if case .copied(let reason) = await TextInserter.insert(dictation.finalText, language: dictation.language) {
+            if case .copied(let reason) = await TextInserter.insert(dictation.displayText, language: dictation.language) {
                 hud.show(.copied(reason.message))
             }
         }
@@ -301,6 +340,7 @@ final class DictationController: ObservableObject {
             if let note = InputDevices.shared.note(for: started, chosen: chosen) { hud.show(note: note) }
         case .failure(let error):
             log.error("Recording failed: \(error.localizedDescription, privacy: .public)")
+            HealthCounter.count(.recordingFailed)
             handsFree = false
             discardRecording()
             if case AudioRecorder.RecorderError.permissionMissing = error {

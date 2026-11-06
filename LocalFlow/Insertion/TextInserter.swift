@@ -48,10 +48,20 @@ enum TextInserter {
     /// Tells whether a key was pressed since the last paste, for fields Accessibility can't read.
     static weak var keyboard: HotkeyMonitor?
     private static var lastPaste: (appBundleID: String?, date: Date)?
+    /// Where the last paste went, for `PasteWatcher`. Taken once.
+    private static var lastTarget: PasteWatcher.Target?
+
+    static func takeLastTarget() -> PasteWatcher.Target? {
+        defer { lastTarget = nil }
+        return lastTarget
+    }
 
     /// - Parameter language: Whisper code of the text's language, which decides on a leading space.
     static func insert(_ text: String, language: String) async -> Outcome {
         let pasteboard = NSPasteboard.general
+        // Another paste changes the field, so the watch on the last one ends here.
+        PasteWatcher.shared.finish(.nextDictation)
+        lastTarget = nil
 
         if let reason = reasonNotToPaste() {
             copy(text)
@@ -63,8 +73,13 @@ enum TextInserter {
         writeTransient(spaced, to: pasteboard)
         let ourChange = pasteboard.changeCount
 
+        let element = FocusedField.element()
         sendCommandV()
-        lastPaste = (NSWorkspace.shared.frontmostApplication?.bundleIdentifier, Date())
+        let app = NSWorkspace.shared.frontmostApplication
+        lastPaste = (app?.bundleIdentifier, Date())
+        if let element, let app {
+            lastTarget = PasteWatcher.Target(element: element, pid: app.processIdentifier, pasted: spaced)
+        }
         _ = keyboard?.takeKeyPressed()
         try? await Task.sleep(for: restoreDelay)
 
@@ -234,6 +249,35 @@ enum FocusedField {
             }
         }
         return .unreadable
+    }
+
+    /// The focused element, if Accessibility gives one.
+    static func element() -> AXUIElement? {
+        let system = AXUIElementCreateSystemWide()
+        AXUIElementSetMessagingTimeout(system, 0.25)
+        var focused: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString, &focused) == .success,
+              let focused, CFGetTypeID(focused) == AXUIElementGetTypeID() else { return nil }
+        let element = focused as! AXUIElement
+        AXUIElementSetMessagingTimeout(element, 0.25)
+        return element
+    }
+
+    /// The element's whole text, for `PasteWatcher` to follow the pasted span. Never logged or stored.
+    static func value(of element: AXUIElement) -> String? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &value) == .success else { return nil }
+        return value as? String
+    }
+
+    /// The caret, as a UTF-16 offset. Nil if unknown, or 0, which terminals such as cmux always report.
+    static func caret(of element: AXUIElement) -> Int? {
+        var rangeValue: CFTypeRef?
+        var selection = CFRange()
+        guard AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeValue) == .success,
+              let rangeValue, AXValueGetValue(rangeValue as! AXValue, .cfRange, &selection),
+              selection.location != kCFNotFound, selection.location > 0 else { return nil }
+        return selection.location
     }
 
     private static func subrole(of element: AXUIElement) -> String? {

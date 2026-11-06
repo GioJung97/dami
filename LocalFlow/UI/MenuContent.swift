@@ -6,6 +6,8 @@ struct MenuContent: View {
     @ObservedObject var controller: DictationController
     @ObservedObject private var settings = AppSettings.shared
     @ObservedObject private var permissions = Permissions.shared
+    @ObservedObject private var store = Store.shared
+    @State private var showingStoreReason = false
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismiss) private var dismiss
 
@@ -74,6 +76,9 @@ struct MenuContent: View {
     private var fullMenu: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
+            if let reason = store.unavailableReason {
+                storeWarning(reason)
+            }
             Divider().padding(.vertical, 4)
 
             if !controller.permissionsReady {
@@ -152,20 +157,15 @@ struct MenuContent: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
                 ForEach(controller.recent) { item in
-                    let dictation = item.dictation
-                    Button {
+                    RecentRow(dictation: item.dictation) {
                         dismiss()
-                        controller.pasteAgain(dictation)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(dictation.finalText).lineLimit(1).truncationMode(.tail)
-                            Text("\(dictation.appName ?? "Unknown app") · \(dictation.createdAt.formatted(date: .omitted, time: .shortened))")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        controller.pasteAgain(item.dictation)
+                    } fix: {
+                        guard let id = item.dictation.id else { return }
+                        dismiss()
+                        Navigation.shared.openHistory(fixing: id)
+                        NSApp.activate(ignoringOtherApps: true)
                     }
-                    .buttonStyle(MenuRowStyle())
                 }
             }
 
@@ -233,11 +233,65 @@ struct MenuContent: View {
         }
     }
 
+    /// History lives only in memory this session. Says so, with the reason on click.
+    private func storeWarning(_ reason: String) -> some View {
+        Button { showingStoreReason.toggle() } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Label("History isn't being saved", systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .font(.system(size: 12, weight: .semibold))
+                if showingStoreReason {
+                    Text("LocalFlow couldn't open its history database, so dictations from now until it quits won't be kept. Dictation still works. Reason: \(reason)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(MenuRowStyle())
+    }
+
     private func open(_ id: String, section: Navigation.Section? = nil) {
         if let section { Navigation.shared.section = section }
         dismiss()
         openWindow(id: id)
         NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+/// One Recent dictation: click to paste it again, or the pencil to fix it in History.
+private struct RecentRow: View {
+    let dictation: Dictation
+    let paste: () -> Void
+    let fix: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            Button(action: paste) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(dictation.displayText).lineLimit(1).truncationMode(.tail)
+                    Text("\(dictation.appName ?? "Unknown app") · \(dictation.createdAt.formatted(date: .omitted, time: .shortened))")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.trailing, hovering ? 26 : 0)
+            }
+            .buttonStyle(MenuRowStyle())
+            if hovering {
+                Button(action: fix) {
+                    Image(systemName: "pencil")
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .help("Fix in History")
+                .padding(.trailing, 8)
+            }
+        }
+        .onHover { hovering = $0 }
     }
 }
 

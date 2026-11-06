@@ -152,7 +152,8 @@ final class DictationProcessor {
             return
         }
         let insertion = await TextInserter.insert(processed.final, language: result.language)
-        record(Dictation(
+        let target = TextInserter.takeLastTarget()
+        let saved = record(Dictation(
             createdAt: Date(),
             appName: job.appName,
             appBundleID: job.appBundleID,
@@ -171,6 +172,11 @@ final class DictationProcessor {
             inputTransport: job.inputTransport,
             wordsJSON: result.words.isEmpty ? nil : Self.json(result.words)
         ), audio: job.audio, uses: processed.replacementUses)
+        if case .pasted = insertion {
+            PasteWatcher.shared.watch(saved, target: target)
+        } else {
+            PasteWatcher.shared.watch(saved, target: nil)
+        }
         switch insertion {
         case .pasted: onOutcome?(.pasted)
         case .copied(let reason): onOutcome?(.copied(reason))
@@ -210,7 +216,8 @@ final class DictationProcessor {
         }
     }
 
-    private func record(_ dictation: Dictation, audio: [Float], uses: [Int64: Int]) {
+    @discardableResult
+    private func record(_ dictation: Dictation, audio: [Float], uses: [Int64: Int]) -> Dictation {
         store.recordUses(uses)
         var saved = dictation
         if settings.retentionDays >= 0 {
@@ -220,6 +227,7 @@ final class DictationProcessor {
             }
         }
         onRecorded?(saved)
+        return saved
     }
 
     private static func json<T: Encodable>(_ values: [T]) -> String? {

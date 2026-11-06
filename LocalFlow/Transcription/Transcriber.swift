@@ -172,12 +172,15 @@ actor Transcriber {
 
         let second = language == "en" ? nil : options.secondLanguage
         var prompt: String?
+        var vocabularyInPrompt: [String] = []
         if language == nil {
             prompt = nil
         } else if let second {
             prompt = options.keepEnglishTerms ? second.mixedPrompt : nil
         } else {
-            prompt = options.vocabulary.isEmpty ? nil : options.vocabulary.joined(separator: ", ") + "."
+            let terms = fittingVocabulary(options.vocabulary)
+            prompt = terms.isEmpty ? nil : VocabularyPrompt.text(terms)
+            vocabularyInPrompt = terms
         }
 
         var run = try await run(whisper, audio, prompt: prompt, language: language, wordTimestamps: options.wordTimestamps)
@@ -185,14 +188,39 @@ actor Transcriber {
             run = try await self.run(whisper, audio, prompt: nil, language: language, wordTimestamps: options.wordTimestamps)
             prompt = nil
         }
+        // A very short clip with the prompt can come back empty: Whisper ends at once. Retry once without it, with a little silence
+        // around the speech, which brought all five empty clips back in testing (2026-11-05).
+        if run.text.isEmpty, prompt != nil || audio.count < Self.shortClipSamples {
+            let padding = [Float](repeating: 0, count: Self.paddingSamples)
+            var retry = try await self.run(whisper, padding + audio + padding, prompt: nil, language: language, wordTimestamps: options.wordTimestamps)
+            let offset = Float(Self.paddingSamples) / Float(AudioRecorder.sampleRate)
+            retry.words = retry.words.map { Word(word: $0.word, start: max(0, $0.start - offset), end: max(0, $0.end - offset), probability: $0.probability) }
+            run = retry
+            prompt = nil
+        }
         return Result(
             text: run.text,
             language: language ?? run.language ?? "en",
             prompt: prompt,
-            promptVocabulary: prompt != nil && language == "en" ? options.vocabulary : [],
+            promptVocabulary: prompt != nil && language == "en" ? vocabularyInPrompt : [],
             words: run.words
         )
     }
+
+    /// Whole terms that fit in the prompt, newest first. Empty until the model is loaded.
+    func fittingVocabulary(_ terms: [String]) -> [String] {
+        guard let tokenizer = whisper?.tokenizer else { return [] }
+        return VocabularyPrompt.fitting(terms) { text in
+            tokenizer.encode(text: text).filter { $0 < tokenizer.specialTokens.specialTokenBegin }.count
+        }
+    }
+
+    var isLoaded: Bool { whisper != nil }
+
+    /// Half a second of silence on each side for the empty-result retry.
+    private static let paddingSamples = 8_000
+    /// Under this, a retry also runs when there was no prompt, since short clips are the ones that come back empty.
+    private static let shortClipSamples = 48_000
 
     /// Whisper's own detection picks from all 99 languages, so Korean is sometimes heard as Japanese.
     /// This runs the same single decoder step but only compares the user's languages.

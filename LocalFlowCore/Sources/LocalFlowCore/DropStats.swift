@@ -1,6 +1,6 @@
 import Foundation
 
-/// Counts dictations that produced no pasted text, so a week of use can show whether speech may have been lost.
+/// Counts dictations that produced no pasted text, so daily use can show whether speech may have been lost.
 /// Holds a reason and a length range only, never any text.
 public enum DropStats {
     public enum Reason: String, CaseIterable, Sendable {
