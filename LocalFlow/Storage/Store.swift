@@ -349,6 +349,49 @@ final class Store: ObservableObject {
         reloadRecent()
     }
 
+    // MARK: Automatic capture
+
+    /// Numbers only: how watching one paste ended, so "not edited" and "couldn't see" can be told apart.
+    func recordPasteWatch(dictationId: Int64, outcome: String, endedBy: String?, secondsToEdit: Double?) {
+        do {
+            try db.write { db in
+                try db.execute(
+                    sql: "INSERT INTO pasteWatch (dictationId, createdAt, outcome, endedBy, secondsToEdit) VALUES (?, ?, ?, ?, ?)",
+                    arguments: [dictationId, Date(), outcome, endedBy, secondsToEdit]
+                )
+            }
+        } catch {
+            HealthCounter.count(.historySaveFailed)
+        }
+    }
+
+    /// After a fix seen in another app: a suggestion once the same fix has been seen enough times, on a word Whisper was unsure
+    /// of. It waits in Dictionary › Suggestions.
+    func suggestFromAutoFix(before: String, after: String, dictation: Dictation) {
+        guard let pair = FixSuggestion.from(before: before, after: after),
+              AutoFix.signal(before: before, after: after) == .substitution else { return }
+        if replacements.contains(where: { $0.find == pair.find && $0.replace == pair.replace }) { return }
+        if suggestions.contains(where: { $0.find == pair.find && $0.replace == pair.replace }) { return }
+        let words = dictation.wordsJSON
+            .flatMap { try? JSONDecoder().decode([Transcriber.Word].self, from: Data($0.utf8)) }?
+            .map { (word: $0.word, probability: $0.probability) } ?? []
+        guard AutoFix.wasUnsure(of: pair.find, words: words) else { return }
+        let seen = (try? db.read { db in
+            try Row.fetchAll(db, sql: "SELECT beforeText, afterText FROM edit WHERE source = 'auto'")
+        })?.filter { FixSuggestion.from(before: $0["beforeText"], after: $0["afterText"]) == pair }.count ?? 0
+        guard seen >= AutoFix.repeatsToSuggest else { return }
+        var row = Suggestion(
+            find: pair.find, replace: pair.replace, status: .pending, source: "auto", createdAt: Date(), dictationId: dictation.id
+        )
+        do {
+            try db.write { db in try row.insert(db) }
+        } catch {
+            HealthCounter.count(.historySaveFailed)
+            return
+        }
+        reloadDictionary()
+    }
+
     // MARK: Suggestions
 
     /// The suggestion a fix leads to, if it's new: a pair already answered, or already a Replacement, isn't offered again.

@@ -358,6 +358,16 @@ private struct PrivacySection: View {
                 }
                 .onChange(of: settings.audioRetentionDays) { prune() }
             }
+            Toggle(isOn: $settings.learnFromFixes) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Learn from fixes you make after pasting")
+                    Text("For up to 2 minutes after a paste, LocalFlow notices if you fix that text where you pasted it, and saves the fix in History. Only the pasted text is kept, never what's around it.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .disabled(settings.retentionDays < 0)
+            .onChange(of: settings.learnFromFixes) { if !settings.learnFromFixes { PasteWatcher.shared.finish(.off) } }
             if settings.saveAudio || audioBytes > 0 {
                 LabeledContent("Space used by recordings", value: ByteCountFormatter.string(fromByteCount: audioBytes, countStyle: .file))
             }
