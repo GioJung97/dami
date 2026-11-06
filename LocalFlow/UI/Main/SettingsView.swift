@@ -377,7 +377,7 @@ private struct PrivacySection: View {
                 .confirmationDialog("Delete all history and saved audio?", isPresented: $confirmingDelete) {
                     Button("Delete all", role: .destructive) { Store.shared.deleteAllHistory() }
                 } message: {
-                    Text("Your Dictionary is kept. This can't be undone.")
+                    Text("This deletes every dictation, saved recording and fix, and the copy kept from the last update. Your Dictionary is kept. This can't be undone.")
                 }
         }
         .onAppear { audioBytes = Store.shared.audioBytesUsed() }
