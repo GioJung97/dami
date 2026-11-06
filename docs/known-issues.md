@@ -113,3 +113,10 @@ that the download's progress moves smoothly.
 The system log showed this runtime warning three times on 2026-11-05, around saving fixes in History during M3 and M4 testing. It
 hasn't appeared since, including the M2 and offline tests. The likely place is `HistoryView`'s `openRequestedFix` or a state change
 during a view update. Not investigated. It loses nothing seen so far, but it can make a view skip an update.
+
+## Korean Replacements miss some particles and endings (2026-11-06)
+
+From the v0.3.1 review. A Korean rule matches with up to two particles after it, from a fixed list. Some aren't in it: "하고",
+"이나", "께서", and copula endings such as "이야", "였어", "라서". So a rule for "클라우드 코드" doesn't change "클라우드 코드였어". This errs
+toward changing less, never toward changing meaning, so it waits. If added, check each against words it could cut ("하고" ends
+verbs too).
