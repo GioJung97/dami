@@ -8,10 +8,15 @@ public enum HealthStats {
     }
 
     public static func key(_ event: Event, on date: Date, timeZone: TimeZone = .current) -> String {
+        "\(event.rawValue).\(day(date, timeZone: timeZone))"
+    }
+
+    /// "2026-11-06", in the given time zone.
+    public static func day(_ date: Date, timeZone: TimeZone = .current) -> String {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
         let day = calendar.dateComponents([.year, .month, .day], from: date)
-        return "\(event.rawValue).\(String(format: "%04d-%02d-%02d", day.year ?? 0, day.month ?? 0, day.day ?? 0))"
+        return String(format: "%04d-%02d-%02d", day.year ?? 0, day.month ?? 0, day.day ?? 0)
     }
 
     public static func adding(_ event: Event, on date: Date, timeZone: TimeZone = .current, to counts: [String: Int]) -> [String: Int] {

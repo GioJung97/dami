@@ -55,7 +55,12 @@ that retry, only when a result is empty. Owner tested: 8 short phrases in Korean
   has very little sound to go on.
 - **Longer clips dropped as empty.** Before the diagnosis, one 3–10 s and one over-10 s dictation came back empty on 2026-11-05. The
   retry may or may not catch these: the drop counters will show if it keeps happening.
-- Empty results are counted as `hallucination` in the drop counters, so that reason also includes them.
+
+**Since v0.3.1 (2026-11-06):** drops are counted by day in `dropCountsByDay`, with `empty` apart from `hallucination`. The older,
+undated `dropCounts` counted empty results as `hallucination`, so its 27 there include both. An empty result of 1 s or more offers
+Retry, which forces the other language, the most likely miss on a short clip. A filtered stock phrase offers Paste anyway. Whether
+a retry ever brings back real speech is still unseen: `retry.text` will show it. A "네" under 1 s gets no Retry, since shorter
+drops are mostly stray presses.
 
 ## Made-up text during long pauses
 

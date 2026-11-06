@@ -17,6 +17,7 @@ right away, in any version.
 | v0.1 | It works: hold a key, speak, paste | Usable every day | Done, on `main` |
 | v0.2 | It can be trusted all day | Must-test list done, owner says merge (`docs/plans/v0.2.md`). Stability stays under check in daily use | Done, on `main` |
 | v0.3 | It learns from fixes | `docs/plans/v0.3.md` §6 | Done, merged to `main` 2026-11-05 |
+| v0.3.1 | Fixes from the v0.3 review: no meaning changes, no silent loss, deletion that deletes | `docs/plans/v0.3.1.md` §5 | Done, merged to `main` 2026-11-06 |
 | v0.4 | It cleans up text with a local LLM | `docs/plans/v0.4.md` | Outline only |
 | **v1.0** | **Anyone on a Mac can install and trust it** | See below | No plan yet |
 | After v1.0 | Improve, based on real needs | Each change on its own | Not scheduled, below |
@@ -30,7 +31,8 @@ right away, in any version.
 3. On another Mac without Xcode: install from the `.dmg`, allow it, finish onboarding, dictate. Installing a new version over it keeps
    the permissions. This has never been tried with the current signature.
 4. 2–5 other people have used it with consent, without losing speech, using a diagnostics export with no text in it.
-5. It's published with fresh git history, so personal notes and benchmarks in `docs/` and `bench/` aren't exposed.
+5. What's published has been checked as fine to publish. The repo is already public with its history (owner, 2026-11-05), so
+   this means a review of tracked files, not fresh history. Credentials never go in.
 6. 8 GB Macs such as the MacBook Neo: Smart is off by default, and marked untested unless someone among those people has one. The owner
    has no 8 GB Mac.
 7. Known limits are written down honestly.
@@ -405,6 +407,9 @@ the Roadmap at the top.
   offline check.
 - **Status (2026-11-05): offline check done.** Every item in `docs/plans/v0.3.md` §6 is checked. Not merged yet.
 - **Status (2026-11-05): v0.3 finished and merged to `main`** (owner).
+- **Status (2026-11-06): v0.3.1 built on branch `v0.3.1`** (`docs/plans/v0.3.1.md`): a stray key no longer discards a recording,
+  Replacements change whole words only, deleting history deletes it, and drops are counted by day and can be retried. Not merged.
+- **Status (2026-11-06): v0.3.1 finished and merged to `main`** (owner). App version 0.3.1, build 2.
 
 ### Phase 6 — Later / optional
 - "Command mode": select text, hold a different key, say "make this more formal" / "영어로 번역해줘".

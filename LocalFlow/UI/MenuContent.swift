@@ -96,8 +96,15 @@ struct MenuContent: View {
             ForEach(controller.failedDictations) { failed in
                 HStack(spacing: 2) {
                     Button { controller.retry(failed) } label: {
-                        Label("Failed dictation · Retry", systemImage: "arrow.clockwise")
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Group {
+                            switch failed.kind {
+                            case .failed: Label("Failed dictation · Retry", systemImage: "arrow.clockwise")
+                            case .empty: Label("No speech recognized · Retry", systemImage: "arrow.clockwise")
+                            case .filtered: Label("\(failed.message) · Paste anyway", systemImage: "text.insert")
+                            }
+                        }
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     .buttonStyle(MenuRowStyle())
                     .help(failed.message)
@@ -106,7 +113,7 @@ struct MenuContent: View {
                     }
                     .buttonStyle(MenuRowStyle())
                     .frame(width: 28)
-                    .accessibilityLabel("Dismiss failed dictation")
+                    .accessibilityLabel("Dismiss")
                 }
             }
             if !controller.failedDictations.isEmpty {

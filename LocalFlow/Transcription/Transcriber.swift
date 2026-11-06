@@ -28,6 +28,9 @@ actor Transcriber {
         /// Measure each word's timing and confidence, for `Result.words`. Measured cost: at most
         /// 23 ms on 3–29 s of audio. v0.3 can use it to tell mishearing from a change of mind.
         var wordTimestamps = false
+        /// A retry of a dropped dictation: no prompt, and silence around the speech from the start (v0.3.1 M4). The language is
+        /// forced to the other one by the caller.
+        var isDropRetry = false
     }
 
     /// One word with when it was said and how sure Whisper was.
@@ -181,6 +184,16 @@ actor Transcriber {
             let terms = fittingVocabulary(options.vocabulary)
             prompt = terms.isEmpty ? nil : VocabularyPrompt.text(terms)
             vocabularyInPrompt = terms
+        }
+
+        if options.isDropRetry {
+            prompt = nil
+            vocabularyInPrompt = []
+            let padding = [Float](repeating: 0, count: Self.paddingSamples)
+            var retry = try await self.run(whisper, padding + audio + padding, prompt: nil, language: language, wordTimestamps: options.wordTimestamps)
+            let offset = Float(Self.paddingSamples) / Float(AudioRecorder.sampleRate)
+            retry.words = retry.words.map { Word(word: $0.word, start: max(0, $0.start - offset), end: max(0, $0.end - offset), probability: $0.probability) }
+            return Result(text: retry.text, language: language ?? retry.language ?? "en", prompt: nil, promptVocabulary: [], words: retry.words)
         }
 
         var run = try await run(whisper, audio, prompt: prompt, language: language, wordTimestamps: options.wordTimestamps)

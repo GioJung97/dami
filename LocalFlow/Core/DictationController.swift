@@ -486,6 +486,11 @@ final class DictationController: ObservableObject {
             if isRecording { hud.show(note: reason.message) } else { hud.show(.copied(reason.message)) }
         case .noSpeech:
             report("No speech recognized")
+        case .stillNoSpeech:
+            report("Still no speech recognized")
+        case .dropped(let dictation):
+            let title = if case .filtered = dictation.kind { "Paste anyway" } else { "Retry" }
+            report(dictation.message, actionTitle: title) { [weak self] in self?.processor.retry(dictation.id) }
         case .failed(let dictation):
             report(dictation.message, actionTitle: "Retry") { [weak self] in self?.processor.retry(dictation.id) }
         }

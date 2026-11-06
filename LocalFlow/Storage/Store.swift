@@ -164,14 +164,27 @@ final class Store: ObservableObject {
     }
 
     static let databaseName = "LocalFlow.sqlite"
-    /// A copy taken just before a migration changes the file. Replaced by the next migration's copy.
+    /// A copy taken just before a migration changes the file. Replaced by the next migration's copy, deleted after
+    /// `backupKeepDays`, and with Delete all history.
     static let backupName = "LocalFlow.backup.sqlite"
+    /// Days to keep the copy after a migration that went fine (owner, 2026-11-06). Longer, and dictations deleted one by one
+    /// would live on in it.
+    static let backupKeepDays = 7
+
+    /// Deleted rows are overwritten with zeros instead of staying in the file's free pages.
+    private static var configuration: Configuration {
+        var configuration = Configuration()
+        configuration.prepareDatabase { db in try db.execute(sql: "PRAGMA secure_delete = ON") }
+        return configuration
+    }
 
     private static func openDatabase(in directory: URL) -> (queue: DatabaseQueue, failure: String?) {
         do {
-            let queue = try DatabaseQueue(path: directory.appendingPathComponent(databaseName).path)
+            let queue = try DatabaseQueue(path: directory.appendingPathComponent(databaseName).path, configuration: configuration)
             try backUpBeforeMigrating(queue, in: directory)
             try migrator.migrate(queue)
+            // Not worth losing history over: a failure here leaves the file as it was.
+            try? cleanFreePagesOnce(queue)
             return (queue, nil)
         } catch {
             // A broken database must not stop dictation. Fall back to memory for this session, and say so in the menu.
@@ -180,6 +193,16 @@ final class Store: ObservableObject {
             let queue = try! DatabaseQueue()
             try! migrator.migrate(queue)
             return (queue, error.localizedDescription)
+        }
+    }
+
+    /// `secure_delete` only covers deletes from now on. Text deleted before it may still sit in free pages, so the file is
+    /// rewritten once. `user_version` records that, per file: GRDB's migrations don't use it.
+    private static func cleanFreePagesOnce(_ queue: DatabaseQueue) throws {
+        try queue.writeWithoutTransaction { db in
+            guard try Int.fetchOne(db, sql: "PRAGMA user_version") ?? 0 < 1 else { return }
+            try db.execute(sql: "VACUUM")
+            try db.execute(sql: "PRAGMA user_version = 1")
         }
     }
 
@@ -461,11 +484,27 @@ final class Store: ObservableObject {
         reloadDictionary()
     }
 
+    /// Deletes every dictation with its audio, fixes and paste rows, and the pre-migration copy. The Dictionary stays.
     func deleteAllHistory() {
         _ = try? db.write { db in try Dictation.deleteAll(db) }
+        // Rewrites the file, so nothing deleted is left in it. Can't run inside a transaction.
+        _ = try? db.writeWithoutTransaction { db in try db.execute(sql: "VACUUM") }
         try? FileManager.default.removeItem(at: audioDirectory)
+        // In the fallback the real file is untouched, and the copy may be all that's left of it.
+        if !isInMemoryFallback { try? FileManager.default.removeItem(at: backupURL) }
         reloadRecent()
         reloadDictionary()
+    }
+
+    private var backupURL: URL { directory.appendingPathComponent(Self.backupName) }
+
+    /// The copy from before a migration, once it's older than `backupKeepDays`. The migration went fine if the database opened.
+    private func pruneBackup(now: Date) {
+        guard !isInMemoryFallback,
+              let values = try? backupURL.resourceValues(forKeys: [.creationDateKey, .contentModificationDateKey]),
+              let made = values.creationDate ?? values.contentModificationDate,
+              now.timeIntervalSince(made) > Double(Self.backupKeepDays) * 86_400 else { return }
+        try? FileManager.default.removeItem(at: backupURL)
     }
 
     /// Applies the retention settings. Text: 0 = keep forever, -1 = keep nothing, N = keep N days.
@@ -483,6 +522,7 @@ final class Store: ObservableObject {
             }
         }
         pruneAudio(audioCutoff: now.addingTimeInterval(-Double(audioRetentionDays) * 86_400))
+        pruneBackup(now: now)
         reloadRecent()
     }
 
