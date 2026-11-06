@@ -32,8 +32,8 @@ speak English plus one other language (Korean is the tested one) or both mixed, 
 
 ## Current state and branches
 
-- **v0.2 is finished and on `main`** (owner, 2026-11-04). Work continues on branch `v0.3`. On a new machine:
-  `git fetch && git switch v0.3`.
+- **v0.3 is finished and on `main`** (owner, 2026-11-05), after v0.2 (2026-11-04). The next version starts on a new branch from
+  `main`. On a new machine: `git fetch` and switch to the newest version branch.
 - **Stability is checked continuously, not over a fixed period** (owner, 2026-11-04). Rare problems may not appear in any given week,
   so this runs alongside new work. The owner reports what they notice. **At the end of each milestone, an agent checks what the owner
   can't see:** `scripts/health-check.sh` (failure and drop counters, app errors, crash reports, database health), then reports anything
