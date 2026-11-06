@@ -14,7 +14,8 @@ speak English plus one other language (Korean is the tested one) or both mixed, 
 - `scripts/build.sh` (Release by default; `scripts/build.sh Debug` for debugging): runs xcodegen from
   `project.yml`, builds, signs with the Apple Development certificate, installs to
   `/Applications/LocalFlow.app`, relaunches.
-- Version: `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`.
+- Version: `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`. Raise them when a version merges into `main` (v0.3
+  was missed, so it jumped from 0.2.0 to 0.3.1).
 - Test: `swift test --package-path LocalFlowCore`. Pure logic goes in that package, with tests.
 - Cleanup eval: `swift run --package-path LocalFlowCore localflow-eval` from the repo root writes `bench/cleanup_results.md`.
 - Edit `project.yml`, never the generated `LocalFlow.xcodeproj/` (git-ignored).
@@ -32,7 +33,7 @@ speak English plus one other language (Korean is the tested one) or both mixed, 
 
 ## Current state and branches
 
-- **v0.3 is finished and on `main`** (owner, 2026-11-05), after v0.2 (2026-11-04). The next version starts on a new branch from
+- **v0.3.1 is finished and on `main`** (owner, 2026-11-06), after v0.3 (2026-11-05) and v0.2 (2026-11-04). The next version starts on a new branch from
   `main`. On a new machine: `git fetch` and switch to the newest version branch.
 - **Stability is checked continuously, not over a fixed period** (owner, 2026-11-04). Rare problems may not appear in any given week,
   so this runs alongside new work. The owner reports what they notice. **At the end of each milestone, an agent checks what the owner
