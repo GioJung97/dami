@@ -3,7 +3,8 @@ import Foundation
 /// Decides what each keyboard event means for the dictation shortcut.
 ///
 /// - Modifier-only shortcuts (Right ⌘ + Right ⌥): pressed when exactly those modifiers are held.
-///   If another key is pressed meanwhile, it was an app shortcut, so the press is cancelled.
+///   If another key is pressed within `appShortcutWindow` of the press, it was an app shortcut, so the press is cancelled.
+///   A key pressed later is typing during a recording: it goes to the app and the recording goes on.
 /// - Key shortcuts (⌃ Space): the key events are swallowed so they don't also type into the app.
 /// - Esc is swallowed and reported while `capturesEscape` is true.
 /// - Events LocalFlow posted itself, such as its ⌘V, are ignored. Otherwise a paste near a recording
@@ -42,6 +43,8 @@ public struct HotkeyMachine: Sendable {
     }
 
     static let escapeKeyCode: UInt16 = 0x35
+    /// How soon after the press another key still means an app shortcut, such as ⌘⌥ plus a letter.
+    public static let appShortcutWindow: TimeInterval = 1.0
 
     public var shortcut: Shortcut { didSet { isHeld = false } }
     /// True while a recording or pending work can be cancelled with Esc.
@@ -49,6 +52,8 @@ public struct HotkeyMachine: Sendable {
     /// While the shortcut recorder in Settings is open, the shortcut does nothing.
     public var isSuspended = false
     public private(set) var isHeld = false
+    /// When the modifier-only shortcut was pressed, in seconds on the caller's clock.
+    private var pressedAt: TimeInterval?
     /// A key was pressed since `clearKeyPressed`. Which key isn't kept anywhere.
     public private(set) var keyPressed = false
 
@@ -56,13 +61,16 @@ public struct HotkeyMachine: Sendable {
         self.shortcut = shortcut
     }
 
-    public mutating func handle(_ event: Event, isSynthetic: Bool = false) -> Action {
+    /// - Parameter time: when the event happened, in seconds. Only differences matter; tests pass their own.
+    public mutating func handle(
+        _ event: Event, isSynthetic: Bool = false, at time: TimeInterval = ProcessInfo.processInfo.systemUptime
+    ) -> Action {
         guard !isSuspended, !isSynthetic else { return Action() }
 
         if case .keyDown(Self.escapeKeyCode, _) = event, capturesEscape {
             return Action(swallow: true, signal: .escape)
         }
-        let action = shortcut.keyCode == nil ? handleModifierOnly(event) : handleKey(event)
+        let action = shortcut.keyCode == nil ? handleModifierOnly(event, at: time) : handleKey(event)
         if case .keyDown = event, !action.swallow { keyPressed = true }
         return action
     }
@@ -79,12 +87,13 @@ public struct HotkeyMachine: Sendable {
         return Action(signal: .release)
     }
 
-    private mutating func handleModifierOnly(_ event: Event) -> Action {
+    private mutating func handleModifierOnly(_ event: Event, at time: TimeInterval) -> Action {
         switch event {
         case .flagsChanged(let modifiers):
             let matches = modifiers == shortcut.modifiers
             if matches && !isHeld {
                 isHeld = true
+                pressedAt = time
                 return Action(signal: .press)
             }
             if !matches && isHeld {
@@ -92,7 +101,8 @@ public struct HotkeyMachine: Sendable {
                 return Action(signal: .release)
             }
         case .keyDown:
-            if isHeld {
+            // Only an early key cancels. Cancelling later would throw away what was said, with no message.
+            if isHeld, let pressedAt, time - pressedAt < Self.appShortcutWindow {
                 isHeld = false
                 return Action(signal: .cancel)
             }

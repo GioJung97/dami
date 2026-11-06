@@ -25,6 +25,60 @@ final class HotkeyMachineTests: XCTestCase {
         XCTAssertFalse(machine.isHeld)
     }
 
+    func testKeyWithinTheWindowCancels() {
+        var machine = modifierOnly()
+        _ = machine.handle(.flagsChanged(modifiers: rightCommandOption), at: 10)
+        XCTAssertEqual(machine.handle(.keyDown(keyCode: vKey, modifiers: rightCommandOption), at: 10.9), .init(signal: .cancel))
+        XCTAssertFalse(machine.isHeld)
+        // Letting go afterwards reports nothing more.
+        XCTAssertEqual(machine.handle(.flagsChanged(modifiers: 0), at: 11.5), .init())
+    }
+
+    /// The bug this guards against: a key pressed while talking discarding the recording.
+    func testKeyAfterTheWindowKeepsRecordingAndReleaseStillArrives() {
+        let space: UInt16 = 0x31
+        var machine = modifierOnly()
+        _ = machine.handle(.flagsChanged(modifiers: rightCommandOption), at: 10)
+        XCTAssertEqual(machine.handle(.keyDown(keyCode: space, modifiers: rightCommandOption), at: 11.0), .init())
+        XCTAssertEqual(machine.handle(.keyUp(keyCode: space, modifiers: rightCommandOption), at: 11.1), .init())
+        XCTAssertTrue(machine.isHeld)
+        XCTAssertEqual(machine.handle(.flagsChanged(modifiers: 0), at: 14), .init(signal: .release))
+    }
+
+    func testKeyRepeatAfterTheWindowDoesNotCancel() {
+        var machine = modifierOnly()
+        _ = machine.handle(.flagsChanged(modifiers: rightCommandOption), at: 10)
+        for t in stride(from: 12.0, to: 13.0, by: 0.1) {
+            XCTAssertEqual(machine.handle(.keyDown(keyCode: vKey, modifiers: rightCommandOption), at: t), .init())
+        }
+        XCTAssertTrue(machine.isHeld)
+    }
+
+    func testWindowStartsAgainOnTheNextPress() {
+        var machine = modifierOnly()
+        _ = machine.handle(.flagsChanged(modifiers: rightCommandOption), at: 10)
+        _ = machine.handle(.keyDown(keyCode: vKey, modifiers: rightCommandOption), at: 12)
+        XCTAssertEqual(machine.handle(.flagsChanged(modifiers: 0), at: 13), .init(signal: .release))
+        XCTAssertEqual(machine.handle(.flagsChanged(modifiers: rightCommandOption), at: 20), .init(signal: .press))
+        XCTAssertEqual(machine.handle(.keyDown(keyCode: vKey, modifiers: rightCommandOption), at: 20.2), .init(signal: .cancel))
+    }
+
+    func testOwnPasteAfterTheWindowStillIgnored() {
+        var machine = modifierOnly()
+        _ = machine.handle(.flagsChanged(modifiers: rightCommandOption), at: 10)
+        XCTAssertEqual(machine.handle(.keyDown(keyCode: vKey, modifiers: 0), isSynthetic: true, at: 10.1), .init())
+        XCTAssertTrue(machine.isHeld)
+    }
+
+    func testKeyShortcutIgnoresOtherKeysAtAnyTime() {
+        let space: UInt16 = 0x31
+        var machine = HotkeyMachine(shortcut: .init(modifiers: 0x1, keyCode: space))
+        XCTAssertEqual(machine.handle(.keyDown(keyCode: space, modifiers: 0x1), at: 10), .init(swallow: true, signal: .press))
+        XCTAssertEqual(machine.handle(.keyDown(keyCode: vKey, modifiers: 0x1), at: 10.2), .init())
+        XCTAssertEqual(machine.handle(.keyDown(keyCode: vKey, modifiers: 0x1), at: 12), .init())
+        XCTAssertEqual(machine.handle(.keyUp(keyCode: space, modifiers: 0x1), at: 13), .init(swallow: true, signal: .release))
+    }
+
     /// The bug this guards against: our own ⌘V cancelling a recording.
     func testOwnPasteWhileHeldDoesNotCancel() {
         var machine = modifierOnly()
