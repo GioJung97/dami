@@ -102,3 +102,9 @@ on `hasCompletedOnboarding`, so History stays reachable if a permission is remov
 
 **Not done:** a download ETA. Nice to have. It shows "X of 632 MB" today. If added, keep it rough ("about 2 min left"), and check first
 that the download's progress moves smoothly.
+
+## SwiftUI "Publishing changes from within view updates" (2026-11-05)
+
+The system log showed this runtime warning three times on 2026-11-05, around saving fixes in History during M3 and M4 testing. It
+hasn't appeared since, including the M2 and offline tests. The likely place is `HistoryView`'s `openRequestedFix` or a state change
+during a view update. Not investigated. It loses nothing seen so far, but it can make a view skip an update.
