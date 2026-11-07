@@ -18,7 +18,7 @@ right away, in any version.
 | v0.2 | It can be trusted all day | Must-test list done, owner says merge (`docs/plans/v0.2.md`). Stability stays under check in daily use | Done, on `main` |
 | v0.3 | It learns from fixes | `docs/plans/v0.3.md` §6 | Done, merged to `main` 2026-11-05 |
 | v0.3.1 | Fixes from the v0.3 review: no meaning changes, no silent loss, deletion that deletes | `docs/plans/v0.3.1.md` §5 | Done, merged to `main` 2026-11-06 |
-| v0.4 | Where the time goes, and whether a local LLM can clean up safely | `docs/plans/v0.4.md` §6 | Branch `v0.4`. The model failed the pass line, so Smart isn't built (2026-11-06) |
+| v0.4 | Where the time goes, and whether a local LLM can clean up safely | `docs/plans/v0.4.md` §6 | Done, merged to `main` 2026-11-06. The model failed the pass line, so Smart isn't built |
 | **v1.0** | **Anyone on a Mac can install and trust it** | See below | No plan yet |
 | After v1.0 | Improve, based on real needs | Each change on its own | Not scheduled, below |
 

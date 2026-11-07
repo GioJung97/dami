@@ -33,7 +33,7 @@ speak English plus one other language (Korean is the tested one) or both mixed, 
 
 ## Current state and branches
 
-- **v0.3.1 is finished and on `main`** (owner, 2026-11-06), after v0.3 (2026-11-05) and v0.2 (2026-11-04). The next version starts on a new branch from
+- **v0.4 is finished and on `main`** (owner, 2026-11-06), after v0.3.1 (2026-11-06), v0.3 (2026-11-05) and v0.2 (2026-11-04). The next version starts on a new branch from
   `main`. On a new machine: `git fetch` and switch to the newest version branch.
 - **Stability is checked continuously, not over a fixed period** (owner, 2026-11-04). Rare problems may not appear in any given week,
   so this runs alongside new work. The owner reports what they notice. **At the end of each milestone, an agent checks what the owner
