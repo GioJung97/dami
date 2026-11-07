@@ -24,8 +24,8 @@ speak English plus one other language (Korean is the tested one) or both mixed, 
 ## Key decisions (details in PLAN.md)
 
 - Speech: WhisperKit `large-v3-turbo` 632 MB on the Neural Engine, language-adaptive prompting (§5).
-- Cleanup: conservative rules only in v0.2 (Raw and Light modes). A local LLM as an optional Smart mode is planned for v0.4
-  (`docs/plans/v0.4.md`).
+- Cleanup: conservative rules only (Raw and Light modes). A local LLM (Smart mode) was tried in v0.4 and failed its pass line, so
+  v1.0 goes without one (owner, 2026-11-06). It may be tried again after v1.0 (`docs/plans/v0.4.md` §7).
 - Direction: `PLAN.md` Roadmap is the frame. Build to v1.0 first and improve after it. Check new work against the frame, and put
   improvements after v1.0 unless they lose speech, paste wrongly or break trust.
 - English words inside Korean sentences stay in English.
