@@ -18,7 +18,7 @@ right away, in any version.
 | v0.2 | It can be trusted all day | Must-test list done, owner says merge (`docs/plans/v0.2.md`). Stability stays under check in daily use | Done, on `main` |
 | v0.3 | It learns from fixes | `docs/plans/v0.3.md` §6 | Done, merged to `main` 2026-11-05 |
 | v0.3.1 | Fixes from the v0.3 review: no meaning changes, no silent loss, deletion that deletes | `docs/plans/v0.3.1.md` §5 | Done, merged to `main` 2026-11-06 |
-| v0.4 | It cleans up text with a local LLM | `docs/plans/v0.4.md` | Outline only |
+| v0.4 | Where the time goes, and whether a local LLM can clean up safely | `docs/plans/v0.4.md` §6 | Done, merged to `main` 2026-11-06. The model failed the pass line, so Smart isn't built |
 | **v1.0** | **Anyone on a Mac can install and trust it** | See below | No plan yet |
 | After v1.0 | Improve, based on real needs | Each change on its own | Not scheduled, below |
 
@@ -33,9 +33,10 @@ right away, in any version.
 4. 2–5 other people have used it with consent, without losing speech, using a diagnostics export with no text in it.
 5. What's published has been checked as fine to publish. The repo is already public with its history (owner, 2026-11-05), so
    this means a review of tracked files, not fresh history. Credentials never go in.
-6. 8 GB Macs such as the MacBook Neo: Smart is off by default, and marked untested unless someone among those people has one. The owner
-   has no 8 GB Mac.
-7. Known limits are written down honestly.
+6. Known limits are written down honestly.
+7. Language detection no longer encodes the audio a second time (`docs/known-issues.md`, owner 2026-11-06).
+
+No LLM in v1.0 (owner, 2026-11-06): Smart mode may be tried again after it, once more use has built up.
 
 **Not scheduled.** The one list of ideas with no version yet. Pick from here when planning a version.
 
@@ -47,6 +48,7 @@ right away, in any version.
 | Models | A lighter and a heavier speech model in Settings, choosing models by hardware |
 | Learning | Showing what was learned, highlights on low-probability words, re-dictation detection, merged Dictionary |
 | Pasting | Protection when focus changes during processing, checks in apps not yet tried (Safari, Electron, Word) |
+| Cleanup | Smart mode with a local LLM, tried in v0.4 and not passed: what to change first is in `docs/plans/v0.4.md` §7 |
 | Features | Command mode, per-app modes |
 | Across Macs | Dictionary export and import, backups, sync |
 | Project | CI, paid Apple account and notarization if permissions don't survive updates |
@@ -387,6 +389,9 @@ the Roadmap at the top.
   this phase's details disagree with that plan, the plan wins; `PLAN.md` gets re-aligned in its last milestone.
 - **Status (2026-11-02): rules layer done in v0.2.** Raw and Light modes, English and Korean rules, eval set in
   `bench/cleanup_cases.tsv`. No LLM yet, so "um so like let's meet at 3, no, 4" isn't fully fixed; numbers are.
+- **Status (2026-11-06): LLM tried in v0.4, not adopted.** Qwen3-1.7B with `mlx-lm`, behind a guardrail, failed the pass line written
+  before it ran: it changed repeats said on purpose, got 20 of 39 target cases right against Light's 23, and took 0.64 s on text alone
+  (`bench/smart_results.md`). The owner decided v1.0 goes without an LLM. The LLM steps of this phase wait until after v1.0.
 
 ### Phase 4 — Bilingual tuning (1–2 days)
 - ~~en/ko-restricted language detection~~ (done 2026-10-31, generalized to English + chosen language), mixed-language prompt biasing.

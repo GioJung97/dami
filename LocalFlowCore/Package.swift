@@ -8,10 +8,12 @@ let package = Package(
     products: [
         .library(name: "LocalFlowCore", targets: ["LocalFlowCore"]),
         .executable(name: "localflow-eval", targets: ["localflow-eval"]),
+        .executable(name: "localflow-guard", targets: ["localflow-guard"]),
     ],
     targets: [
         .target(name: "LocalFlowCore"),
         .executableTarget(name: "localflow-eval", dependencies: ["LocalFlowCore"]),
+        .executableTarget(name: "localflow-guard", dependencies: ["LocalFlowCore"]),
         .testTarget(name: "LocalFlowCoreTests", dependencies: ["LocalFlowCore"]),
     ]
 )

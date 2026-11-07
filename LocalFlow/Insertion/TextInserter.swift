@@ -48,6 +48,8 @@ enum TextInserter {
     /// Tells whether a key was pressed since the last paste, for fields Accessibility can't read.
     static weak var keyboard: HotkeyMonitor?
     private static var lastPaste: (appBundleID: String?, date: Date)?
+    /// When the last ⌘V was sent: the end of the wait the person feels. The clipboard restore after it isn't waiting.
+    static private(set) var lastSentAt: Date?
     /// Where the last paste went, for `PasteWatcher`. Taken once.
     private static var lastTarget: PasteWatcher.Target?
 
@@ -75,6 +77,7 @@ enum TextInserter {
 
         let element = FocusedField.element()
         sendCommandV()
+        lastSentAt = Date()
         let app = NSWorkspace.shared.frontmostApplication
         lastPaste = (app?.bundleIdentifier, Date())
         if let element, let app {

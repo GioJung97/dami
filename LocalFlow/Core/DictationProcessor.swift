@@ -26,6 +26,17 @@ final class DictationProcessor {
         let inputTransport: String?
         let appName: String?
         let appBundleID: String?
+        /// When the shortcut was let go, before the tail: the start of the wait the person feels.
+        var stoppedAt = Date()
+        /// The first dictation after a while idle, timed apart.
+        var isFirstAfterIdle = false
+        /// Set for "Paste anyway": what Whisper already returned, so it goes through the order without transcribing again.
+        var pasteAnyway: PasteAnyway?
+    }
+
+    struct PasteAnyway: Sendable {
+        let result: Transcriber.Result
+        let latency: TimeInterval
     }
 
     /// A dictation that can be tried again. Its audio, and a filtered text, stay in memory only, until then.
@@ -50,6 +61,8 @@ final class DictationProcessor {
     fileprivate struct Transcribed: Sendable {
         let result: Transcriber.Result
         let latency: TimeInterval
+        /// When transcription started, after waiting for earlier jobs and the model.
+        var started = Date()
     }
 
     private struct TimedOut: Error {}
@@ -80,12 +93,14 @@ final class DictationProcessor {
     private let settings = AppSettings.shared
     private let store = Store.shared
     private let log = Logger(subsystem: "com.localflow.app", category: "dictation")
+    private let latencyLog = Logger(subsystem: "com.localflow.app", category: "latency")
     private var queue: DictationQueue<Job, Transcribed>!
     private var slowTask: Task<Void, Never>?
 
     init(transcriber: Transcriber) {
         queue = DictationQueue(
             process: { [weak self] job in
+                if let earlier = job.pasteAnyway { return Transcribed(result: earlier.result, latency: earlier.latency) }
                 try await transcriber.waitUntilReady()
                 await self?.startSlowTimer()
                 do {
@@ -94,7 +109,7 @@ final class DictationProcessor {
                         try await transcriber.transcribe(job.audio, options: job.options)
                     }
                     await self?.stopSlowTimer()
-                    return Transcribed(result: result, latency: Date().timeIntervalSince(started))
+                    return Transcribed(result: result, latency: Date().timeIntervalSince(started), started: started)
                 } catch {
                     await self?.stopSlowTimer()
                     throw error
@@ -121,11 +136,13 @@ final class DictationProcessor {
         guard let index = failed.firstIndex(where: { $0.id == id }) else { return }
         let dictation = failed.remove(at: index)
         onChange?()
+        var job = dictation.job
+        job.stoppedAt = Date()
+        // Through the queue either way, so it keeps the order and waits while a recording is on.
         if case .filtered = dictation.kind, let transcribed = dictation.transcribed {
-            Task { await deliver(dictation.job, transcribed, pastingAnyway: true) }
-        } else {
-            queue.add(dictation.job)
+            job.pasteAnyway = PasteAnyway(result: transcribed.result, latency: transcribed.latency)
         }
+        queue.add(job)
     }
 
     func dismiss(_ id: FailedDictation.ID) {
@@ -148,7 +165,8 @@ final class DictationProcessor {
         isSlow = false
     }
 
-    private func deliver(_ job: Job, _ transcribed: Transcribed, pastingAnyway: Bool = false) async {
+    private func deliver(_ job: Job, _ transcribed: Transcribed) async {
+        let pastingAnyway = job.pasteAnyway != nil
         let result = transcribed.result
         log.info("[\(result.language, privacy: .public)] \(String(format: "%.1f", job.seconds))s audio → \(String(format: "%.2f", transcribed.latency))s")
 
@@ -161,9 +179,11 @@ final class DictationProcessor {
             onOutcome?(.noSpeech)
             return
         }
+        let cleanupStarted = Date()
         let processed = TextPipeline.process(
             raw: result.text, mode: job.mode, language: result.language, rules: store.replacements.map(\.rule)
         )
+        let cleanupSeconds = Date().timeIntervalSince(cleanupStarted)
         // Nothing but fillers.
         guard !processed.final.isEmpty else {
             Self.countDrop(.onlyFillers, audioSeconds: job.seconds)
@@ -172,7 +192,11 @@ final class DictationProcessor {
             return
         }
         if pastingAnyway { Self.countRetry(.pastedAnyway) } else if job.options.isDropRetry { Self.countRetry(.text) }
+        let pasteStarted = Date()
         let insertion = await TextInserter.insert(processed.final, language: result.language)
+        if case .pasted = insertion, !pastingAnyway, let sent = TextInserter.lastSentAt {
+            logLatency(job, transcribed, cleanup: cleanupSeconds, paste: sent.timeIntervalSince(pasteStarted), total: sent.timeIntervalSince(job.stoppedAt))
+        }
         let target = TextInserter.takeLastTarget()
         let saved = record(Dictation(
             createdAt: Date(),
@@ -203,6 +227,28 @@ final class DictationProcessor {
         case .copied(let reason): onOutcome?(.copied(reason))
         }
     }
+
+    /// Numbers only: where the time went, from letting go of the shortcut to ⌘V being sent (v0.4 M1). `wait` includes the
+    /// recording tail and any earlier dictation still running. Info logs aren't kept on disk, so the last `latencyKept` lines also
+    /// go in UserDefaults `latencySamples`, read by `scripts/health-check.sh`. Read with
+    /// `log show --predicate 'subsystem == "com.localflow.app" && category == "latency"'`.
+    private func logLatency(_ job: Job, _ transcribed: Transcribed, cleanup: Double, paste: Double, total: Double) {
+        let t = transcribed.result.timings
+        let wait = transcribed.started.timeIntervalSince(job.stoppedAt)
+        let mode = job.options.forcedLanguage == nil ? "auto" : "fixed"
+        let line = String(
+            format: "audio=%.2f lang=%@ mode=%@ firstAfterIdle=%d wait=%.3f detect=%.3f transcribe=%.3f runs=%d cleanup=%.4f paste=%.3f total=%.3f",
+            job.seconds, transcribed.result.language, mode, job.isFirstAfterIdle ? 1 : 0, wait, t.detect, t.transcribe, t.runs,
+            cleanup, paste, total
+        )
+        latencyLog.notice("\(line, privacy: .public)")
+        let defaults = UserDefaults.standard
+        let samples = defaults.stringArray(forKey: "latencySamples") ?? []
+        let stamped = "\(ISO8601DateFormatter().string(from: Date())) \(line)"
+        defaults.set(Array((samples + [stamped]).suffix(Self.latencyKept)), forKey: "latencySamples")
+    }
+
+    private static let latencyKept = 500
 
     /// An empty result or a stock phrase. Kept in memory for a retry or "Paste anyway" when it's long enough to be speech.
     private func drop(_ job: Job, _ transcribed: Transcribed) {

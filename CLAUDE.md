@@ -24,8 +24,8 @@ speak English plus one other language (Korean is the tested one) or both mixed, 
 ## Key decisions (details in PLAN.md)
 
 - Speech: WhisperKit `large-v3-turbo` 632 MB on the Neural Engine, language-adaptive prompting (§5).
-- Cleanup: conservative rules only in v0.2 (Raw and Light modes). A local LLM as an optional Smart mode is planned for v0.4
-  (`docs/plans/v0.4.md`).
+- Cleanup: conservative rules only (Raw and Light modes). A local LLM (Smart mode) was tried in v0.4 and failed its pass line, so
+  v1.0 goes without one (owner, 2026-11-06). It may be tried again after v1.0 (`docs/plans/v0.4.md` §7).
 - Direction: `PLAN.md` Roadmap is the frame. Build to v1.0 first and improve after it. Check new work against the frame, and put
   improvements after v1.0 unless they lose speech, paste wrongly or break trust.
 - English words inside Korean sentences stay in English.
@@ -33,7 +33,7 @@ speak English plus one other language (Korean is the tested one) or both mixed, 
 
 ## Current state and branches
 
-- **v0.3.1 is finished and on `main`** (owner, 2026-11-06), after v0.3 (2026-11-05) and v0.2 (2026-11-04). The next version starts on a new branch from
+- **v0.4 is finished and on `main`** (owner, 2026-11-06), after v0.3.1 (2026-11-06), v0.3 (2026-11-05) and v0.2 (2026-11-04). The next version starts on a new branch from
   `main`. On a new machine: `git fetch` and switch to the newest version branch.
 - **Stability is checked continuously, not over a fixed period** (owner, 2026-11-04). Rare problems may not appear in any given week,
   so this runs alongside new work. The owner reports what they notice. **At the end of each milestone, an agent checks what the owner

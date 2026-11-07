@@ -36,6 +36,8 @@ final class DictationController: ObservableObject {
     static let minimumSeconds = 0.3
     /// Two taps closer than this start hands-free recording.
     static let doubleTapWindow = 0.45
+    /// After this long without a dictation, the next one is timed as first after idle (v0.4 M1).
+    static let idleSeconds: TimeInterval = 300
     /// Keep recording this long after release, so last syllables survive.
     static let tailSeconds = 0.2
     /// Recording limit, in every mode.
@@ -79,6 +81,7 @@ final class DictationController: ObservableObject {
     private var pressStartedAt: Date?
     private var lastTapAt: Date?
     private var handsFree = false
+    private var lastRecordingStoppedAt: Date?
     private var isRecording = false
     private var failureMessage: String?
     /// Silent recordings in a row. A second one suggests the wrong microphone.
@@ -419,15 +422,17 @@ final class DictationController: ObservableObject {
 
         let number = recordingNumber
         let app = targetApp
+        // The wait the person feels starts here, before the tail.
+        let released = Date()
         stoppingRecordings.insert(number)
         refreshState()
         showWork()
         recorder.stop(tail: tail ?? Self.tailSeconds) { [weak self] audio in
-            MainActor.assumeIsolated { self?.recordingStopped(audio, number: number, app: app) }
+            MainActor.assumeIsolated { self?.recordingStopped(audio, number: number, app: app, released: released) }
         }
     }
 
-    private func recordingStopped(_ audio: [Float], number: Int, app: NSRunningApplication?) {
+    private func recordingStopped(_ audio: [Float], number: Int, app: NSRunningApplication?, released: Date) {
         // Esc may have cancelled it during the tail.
         guard stoppingRecordings.remove(number) != nil else { return }
         // After the tail, so the microphone doesn't pick up the sound.
@@ -472,8 +477,11 @@ final class DictationController: ObservableObject {
             mode: settings.cleanupMode,
             inputTransport: microphoneTransport,
             appName: app?.localizedName,
-            appBundleID: app?.bundleIdentifier
+            appBundleID: app?.bundleIdentifier,
+            stoppedAt: released,
+            isFirstAfterIdle: lastRecordingStoppedAt.map { Date().timeIntervalSince($0) > Self.idleSeconds } ?? true
         ))
+        lastRecordingStoppedAt = Date()
     }
 
     private func dictationEnded(_ outcome: DictationProcessor.Outcome) {

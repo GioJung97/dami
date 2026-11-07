@@ -81,6 +81,8 @@ LocalFlow doesn't retrain Whisper. It learns around it, and only changes anythin
 - Before the database format changes in an update, a backup copy is made next to it (`LocalFlow.backup.sqlite`). It's deleted 7
   days later.
 - A recording offered for Retry or Paste anyway stays in memory only, three at most, and is gone when the app quits.
+- For checking reliability and speed, the app keeps counts of dropped dictations by day and the stage times of the last 500
+  dictations, in its preferences: numbers, times, audio length and language, never text.
 
 ## Languages
 
@@ -100,6 +102,8 @@ words like German "er" and Portuguese "um" are real words there.
 - Bluetooth microphones are unreliable. With AirPods, dictations often produced nothing in testing, and first words can
   be cut. The built-in or a wired microphone is recommended.
 - Rules are deliberately narrow, so some fillers stay ("like", "어"), and sentences aren't rewritten.
+- Text appears about 1.5 s after you let go, mostly whatever the length. In Auto, about 0.4 s of that is telling the two languages
+  apart; choosing one language in Settings skips it.
 - In fields Accessibility can't read, such as terminals, spacing between dictations is a best guess. It can miss a space
   after 2 minutes, and moving the cursor with the mouse alone can add an extra one.
 - A green check means the paste was sent. In some apps, when no text field is focused, the text may not appear. It's still in
