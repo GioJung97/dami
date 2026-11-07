@@ -41,3 +41,28 @@ final class DropStatsTests: XCTestCase {
         XCTAssertEqual(DropRetry.language(after: "en", second: nil), "en")
     }
 }
+
+final class SmartScoreTests: XCTestCase {
+    private func row(_ category: String, _ expected: String, notes: String = "") -> CleanupEval.Case {
+        CleanupEval.Case(id: "x", language: "en", category: category, input: "in", expectedLight: "in", notes: notes, expectedSmart: expected)
+    }
+
+    func testAnyAlternativeMatches() {
+        let c = row("smart_fix", "I think || I think.")
+        XCTAssertTrue(SmartScore.matches("I think.", c))
+        XCTAssertTrue(SmartScore.matches("I think", c))
+        XCTAssertFalse(SmartScore.matches("I think so", c))
+    }
+
+    func testTargets() {
+        XCTAssertTrue(SmartScore.isTarget(row("must_fix", "a")))
+        XCTAssertTrue(SmartScore.isTarget(row("smart_fix", "a")))
+        XCTAssertFalse(SmartScore.isTarget(row("must_keep", "a")))
+        XCTAssertFalse(SmartScore.isTarget(row("smart_fix", "a", notes: "long; smart: meaning only, not scored")))
+    }
+
+    func testParsesTheSeventhColumn() {
+        let tsv = "id\tlang\tcategory\tinput\texpected_light\tnotes\texpected_smart\nk\ten\tmust_fix\tUm, hi\tHi\t\tHi || Hi.\n"
+        XCTAssertEqual(CleanupEval.parse(tsv).first?.expectedSmart, "Hi || Hi.")
+    }
+}
