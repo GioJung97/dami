@@ -49,6 +49,15 @@ actor Transcriber {
         /// The vocabulary list, if that's what the prompt was.
         let promptVocabulary: [String]
         var words: [Word] = []
+        var timings = Timings()
+    }
+
+    /// Seconds per stage, numbers only, for the `latency` log (v0.4 M1).
+    struct Timings: Sendable {
+        var detect: Double = 0
+        var transcribe: Double = 0
+        /// Whisper runs, including retries.
+        var runs = 0
     }
 
     private var whisper: WhisperKit?
@@ -158,6 +167,8 @@ actor Transcriber {
         guard let whisper else { throw TranscriberError.notLoaded }
 
         // Nil leaves it to Whisper's own detection, without a prompt.
+        var timings = Timings()
+        let detectStarted = Date()
         var language: String?
         if let forced = options.forcedLanguage {
             language = forced
@@ -173,6 +184,8 @@ actor Transcriber {
             language = "en"
         }
 
+        timings.detect = Date().timeIntervalSince(detectStarted)
+        let transcribeStarted = Date()
         let second = language == "en" ? nil : options.secondLanguage
         var prompt: String?
         var vocabularyInPrompt: [String] = []
@@ -193,13 +206,17 @@ actor Transcriber {
             var retry = try await self.run(whisper, padding + audio + padding, prompt: nil, language: language, wordTimestamps: options.wordTimestamps)
             let offset = Float(Self.paddingSamples) / Float(AudioRecorder.sampleRate)
             retry.words = retry.words.map { Word(word: $0.word, start: max(0, $0.start - offset), end: max(0, $0.end - offset), probability: $0.probability) }
-            return Result(text: retry.text, language: language ?? retry.language ?? "en", prompt: nil, promptVocabulary: [], words: retry.words)
+            timings.runs = 1
+            timings.transcribe = Date().timeIntervalSince(transcribeStarted)
+            return Result(text: retry.text, language: language ?? retry.language ?? "en", prompt: nil, promptVocabulary: [], words: retry.words, timings: timings)
         }
 
         var run = try await run(whisper, audio, prompt: prompt, language: language, wordTimestamps: options.wordTimestamps)
+        timings.runs = 1
         if let script = second?.script, prompt != nil, !run.text.isEmpty, !script.matches(run.text) {
             run = try await self.run(whisper, audio, prompt: nil, language: language, wordTimestamps: options.wordTimestamps)
             prompt = nil
+            timings.runs += 1
         }
         // A very short clip with the prompt can come back empty: Whisper ends at once. Retry once without it, with a little silence
         // around the speech, which brought all five empty clips back in testing (2026-11-05).
@@ -210,13 +227,16 @@ actor Transcriber {
             retry.words = retry.words.map { Word(word: $0.word, start: max(0, $0.start - offset), end: max(0, $0.end - offset), probability: $0.probability) }
             run = retry
             prompt = nil
+            timings.runs += 1
         }
+        timings.transcribe = Date().timeIntervalSince(transcribeStarted)
         return Result(
             text: run.text,
             language: language ?? run.language ?? "en",
             prompt: prompt,
             promptVocabulary: prompt != nil && language == "en" ? vocabularyInPrompt : [],
-            words: run.words
+            words: run.words,
+            timings: timings
         )
     }
 

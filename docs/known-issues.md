@@ -120,3 +120,16 @@ From the v0.3.1 review. A Korean rule matches with up to two particles after it,
 "이나", "께서", and copula endings such as "이야", "였어", "라서". So a rule for "클라우드 코드" doesn't change "클라우드 코드였어". This errs
 toward changing less, never toward changing meaning, so it waits. If added, check each against words it could cut ("하고" ends
 verbs too).
+
+## Language detection encodes the audio a second time (2026-11-06)
+
+Found in v0.4 M1. In Auto, `Transcriber.detectLanguage` runs the audio encoder itself, then transcription runs it again. It costs
+about 0.44 s on every Auto dictation, a quarter to a third of the 1.6 s from release to paste. A fixed language skips it. **To fix
+before v1.0** (owner, 2026-11-06): reuse the encoder output for transcription. Check afterwards that detection picks the same
+language on the bench clips.
+
+## English dictations sometimes come back empty on the first run (2026-11-06)
+
+Found in v0.4 M1. Both English dictations among 11 samples came back empty with the vocabulary prompt and were recovered by the
+retry without it, about 0.45 s later. Nothing was lost. Two samples can't say how often this happens or why. Watch it in the latency
+samples (`runs=2` with `lang=en`) before doing anything.

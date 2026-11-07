@@ -13,6 +13,10 @@ defaults read $domain dropCountsByDay 2>/dev/null || echo "none"
 echo "== Before v0.3.1: no day, and empty results counted as hallucination"
 defaults read $domain dropCounts 2>/dev/null || echo "none"
 
+echo "== Latency samples, numbers only (last 5 of up to 500)"
+defaults read $domain latencySamples 2>/dev/null | grep -c audio= | sed 's/^/   total: /'
+defaults read $domain latencySamples 2>/dev/null | grep audio= | tail -5 | sed 's/^ *"//; s/",*$//'
+
 echo "== App errors in the system log (only reaches back so far)"
 /usr/bin/log show --last 7d --style compact \
     --predicate 'subsystem == "com.localflow.app" AND messageType == error' 2>/dev/null \
