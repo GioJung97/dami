@@ -1,22 +1,35 @@
-# Dami
+<p align="center">
+  <img src="docs/assets/dami-icon.png" width="128" height="128" alt="Dami icon">
+</p>
 
-Offline dictation for macOS. Hold a key, speak, and the text is pasted at your cursor. Speech recognition runs
-on your Mac with [WhisperKit](https://github.com/argmaxinc/WhisperKit). There's no account and no subscription,
-and your voice isn't uploaded.
+<h1 align="center">Dami</h1>
 
-It handles English and one other language, including both in the same sentence, with English words kept in English.
+<p align="center">
+  Offline dictation for macOS. Hold a key, speak, and the text is pasted at your cursor.<br>
+  English and one other language, even in the same sentence. Your voice never leaves your Mac.
+</p>
+
+<p align="center">
+  <img src="docs/assets/dami-demo.gif" width="800" alt="Holding Right Command and Right Option in a notes window: the Dami indicator shows the recording, then a check, and the sentence appears at the cursor. A second dictation mixes Korean and English.">
+</p>
+
+Speech recognition runs on your Mac with [WhisperKit](https://github.com/argmaxinc/WhisperKit). There's no account and no
+subscription, and your voice isn't uploaded. English words in a sentence in your other language stay in English.
+
 It's an early version, built for its author's daily use. It learns from your fixes, and only changes what you approve.
+The name comes from Korean 담다, "to hold, to put in": it holds what you say. Formerly called LocalFlow.
 
-Formerly called LocalFlow.
+## Install
 
-## Requirements
+There's no prebuilt download yet, so Dami is built from source.
+
+### Requirements
 
 - Apple Silicon Mac, macOS 14 or newer. So far tested on macOS 15.3 only.
 - Xcode, [XcodeGen](https://github.com/yonaskolb/XcodeGen) and an Apple Development certificate, to build it.
-  There's no prebuilt download yet.
 - About 1 GB free for the speech model (632 MB), which downloads once on first launch.
 
-## Build from source
+### Build
 
 ```bash
 brew install xcodegen
@@ -43,6 +56,9 @@ Run the tests with `swift test --package-path DamiCore`.
 - Press Esc to cancel. A recording stops on its own after 5 minutes and is transcribed.
 - **Light** mode (the default) removes fillers such as "um" and "음" and some repeated words, keeps a corrected number
   ("3, no, 4" becomes "4"), and applies your Dictionary. **Raw** pastes exactly what Whisper wrote.
+- Dami lives in the menu bar (a speech bubble). Its menu has your recent dictations, the language and cleanup choices, and
+  **Open Dami…** for Home, History, Dictionary and Settings.
+- Settings › General › Appearance: a theme (paper and ink), a key color, and light, dark or follow the Mac.
 - If nothing was recognized in a recording of a second or more, the HUD offers **Retry**, which tries the other language. A
   recording dropped as a phrase Whisper often makes up on silence, such as "Thanks for watching", offers **Paste anyway**.
 
