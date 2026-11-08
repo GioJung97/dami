@@ -94,7 +94,9 @@ private struct MenuBarLabel: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Image(systemName: controller.state.symbolName)
+        Image(controller.state.glyphName)
+            .renderingMode(.template)
+            .accessibilityLabel("Dami")
             .onReceive(Navigation.shared.$windowRequests.dropFirst()) { _ in
                 openWindow(id: WindowID.main)
                 NSApp.activate(ignoringOtherApps: true)

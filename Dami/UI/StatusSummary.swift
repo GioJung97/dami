@@ -39,3 +39,16 @@ struct StatusBadge: View {
         .accessibilityElement(children: .combine)
     }
 }
+
+/// The menu bar glyph for each state (spec §7 "Menu bar glyph"): the Speech key family, one for one with the old symbols.
+extension DictationController.State {
+    var glyphName: String {
+        switch self {
+        case .loadingModel: "glyph-loading"
+        case .idle: "glyph-ready"
+        case .recording: "glyph-recording"
+        case .transcribing: "glyph-transcribing"
+        case .failed: "glyph-attention"
+        }
+    }
+}
