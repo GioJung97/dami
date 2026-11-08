@@ -1,6 +1,8 @@
 # Dami design spec: JD2 "Notebook with keys"
 
-**Status:** approved by the owner 2026-11-07; D6 (themes) added and approved 2026-11-08. Being built on the `design` branch.
+**Status:** approved by the owner 2026-11-07; D6 (themes) and D7 (light/dark mode) added and approved 2026-11-08.
+**Built** on the `design` branch, steps 1–6 and the README, each checked by the owner in the real app (2026-11-08). Not merged yet.
+Still in the system look: History's selected row, the Microphone pop-up, Settings' grouped form, sheets (see §11).
 **Drafts:** canvas https://claude.ai/artifact/RhjsDeJm6UhfrCK1EFyqht ("Chosen" and "Dami" rows). The canvas is private to the owner.
 **Track:** design, separate from the v1.0 plan, done before v1.0 ships (`docs/sessions/2026-11-07-rename-and-design.md`).
 
@@ -250,3 +252,21 @@ hourglass, waveform, record.circle.fill, ellipsis.circle, exclamationmark.triang
 - README header, screenshots and a short GIF, made from mockups with made-up text.
 - macOS 26 icon variants (dark, tinted, clear).
 - Anything that changes behaviour, such as a link from Home to waiting Suggestions.
+
+## 11. As built (2026-11-08)
+
+| Step | Commit | What |
+|---|---|---|
+| 1 | `218dd08` | `Theme.swift`, `Components.swift`, HUD as a paper slip, `AppSettings.keyColor` |
+| 2 | `06aae58` | Menu panel on paper |
+| 3 | `815d7df` | Main window: top bar (D2), LCD stats (D3), History, Dictionary, Settings, Key color (D1) |
+| 4 | `5b2c7b9` | Themes (D6) as `ThemeColor`, Mode (D7), Settings opens on General and keeps its tab while the window is open |
+| 5 | `3f0bdef` | Onboarding, `DamiMark` |
+| 6 | `dd14652` | App icon and the five menu bar glyphs |
+| README | `425b014` | Icon header, demo GIF, Install first |
+
+**Not verified:** Increase Contrast, Reduce Motion and VoiceOver on the new look; other Macs and macOS versions; a fresh install
+that also downloads the model. Contrast values are computed with the WCAG formula, not measured on screen.
+**Left in the system look** (owner to decide): History's selected row (custom selection would touch arrow-key behaviour), the
+Microphone pop-up, Settings' grouped form backgrounds, sheets such as Add to Dictionary.
+
