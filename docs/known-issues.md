@@ -4,10 +4,10 @@ Things we know about and chose not to chase yet. When someone reports one, start
 
 ## Green check, but the text didn't appear
 
-**What happens:** LocalFlow shows the check, but nothing shows up in the app. The check only means ⌘V was sent. Accessibility
+**What happens:** Dami shows the check, but nothing shows up in the app. The check only means ⌘V was sent. Accessibility
 said the focused element could take text, and it couldn't. The speech isn't lost: it's in History and in the menu's Recent list.
 
-**Why it isn't fully solved:** apps describe their focused element in different ways, so `FocusClassifier` (in `LocalFlowCore`)
+**Why it isn't fully solved:** apps describe their focused element in different ways, so `FocusClassifier` (in `DamiCore`)
 decides by how an app is built, and outside web pages an unsure answer means paste. That's right for fields that don't describe
 themselves, and wrong for a non-field that claims a selection or says nothing.
 
@@ -22,7 +22,7 @@ themselves, and wrong for a non-field that claims a selection or says nothing.
 1. Ask which app, and where the focus was (for example "the file list in VS Code").
 2. Have them run this in Terminal, reproduce it once, and send the line. It has the app, role and decision, never any text:
    ```
-   log stream --level debug --predicate 'subsystem == "com.localflow.app" AND category == "insertion"'
+   log stream --level debug --predicate 'subsystem == "io.github.giojung97.dami" AND category == "insertion"'
    ```
 3. Add that case to `FocusClassifierTests` first, then fix `FocusClassifier`. Being unsure on a web page means copying, which only
    costs the user one ⌘V, so prefer that over a silent miss.
@@ -87,7 +87,7 @@ tested a full first run on this Mac (2026-11-05, macOS 15.3). Another Mac hasn't
 - **The full menu was open during setup,** so someone couldn't tell whether setup had finished.
 - **"Preparing…" looked frozen,** with the bar sitting at 100%.
 
-**What the owner's tests found about Input Monitoring.** With Accessibility allowed first, the check turned true at once, LocalFlow
+**What the owner's tests found about Input Monitoring.** With Accessibility allowed first, the check turned true at once, Dami
 didn't appear in Input Monitoring in System Settings, and the shortcut and dictation worked with no reopen. Setup therefore asks for
 Microphone and Accessibility, and shows Input Monitoring only if the shortcut hasn't started 5 seconds after those two. That row stays
 because other macOS versions may differ, and without it a failure there would be a shortcut that silently does nothing. It can go if

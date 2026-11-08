@@ -3,9 +3,9 @@
 The model, prompt and settings are fixed in this file before any run, so results can't shape them. A changed prompt is a new
 version (PROMPT_VERSION) and its report says it was tuned after seeing results.
 
-Every result goes through the app's own guardrail (`localflow-guard`, from LocalFlowCore). One that fails it counts as Light's text.
+Every result goes through the app's own guardrail (`dami-guard`, from DamiCore). One that fails it counts as Light's text.
 
-    swift build --package-path LocalFlowCore -c release --product localflow-guard
+    swift build --package-path DamiCore -c release --product dami-guard
     ~/.cache/localflow-bench/venv/bin/python bench/smart_eval.py [--runs 3] [--model mlx-community/Qwen3-1.7B-4bit]
 
 Writes bench/smart_results.md. Cases are synthetic, so the report holds no personal text.
@@ -19,7 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CASES = ROOT / "bench" / "cleanup_cases.tsv"
-GUARD = ROOT / "LocalFlowCore" / ".build" / "release" / "localflow-guard"
+GUARD = ROOT / "DamiCore" / ".build" / "release" / "dami-guard"
 REPORT = ROOT / "bench" / "smart_results.md"
 
 DEFAULT_MODEL = "mlx-community/Qwen3-1.7B-4bit"

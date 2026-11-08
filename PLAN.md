@@ -1,4 +1,4 @@
-# LocalFlow — Plan
+# Dami — Plan
 
 A personal, fully offline replacement for Wispr Flow on macOS.
 Hold a key → speak (English, Korean, or both mixed) → clean text appears wherever your cursor is.
@@ -79,7 +79,7 @@ No LLM in v1.0 (owner, 2026-11-06): Smart mode may be tried again after it, once
 One native macOS menu bar app written in Swift / SwiftUI.
 
 ```
- ┌──────────────────────────── LocalFlow.app (menu bar, no Dock icon) ────────────────────────────┐
+ ┌──────────────────────────── Dami.app (menu bar, no Dock icon) ────────────────────────────┐
  │                                                                                                 │
  │  HotkeyMonitor ──► DictationController (shortcut + current recording) ◄── HUDController         │
  │   (own thread)          │                                                                       │
@@ -90,7 +90,7 @@ One native macOS menu bar app written in Swift / SwiftUI.
  │                               ├─► TextInserter   clipboard + ⌘V, restore clipboard              │
  │                               └─► Store          SQLite: every dictation, raw + final           │
  │                                                                                                 │
- │  LocalFlowCore (package): pure logic with tests, no AppKit, WhisperKit or GRDB                  │
+ │  DamiCore (package): pure logic with tests, no AppKit, WhisperKit or GRDB                  │
  └─────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -151,7 +151,7 @@ The app shows a first-run checklist that opens each System Settings pane.
 
 ### 4.1 Recording and uploading
 Wispr Flow records your voice and **uploads the audio** (Opus-compressed) to its servers, along with
-text from the field you're typing in. LocalFlow keeps the audio in memory and hands it straight to the
+text from the field you're typing in. Dami keeps the audio in memory and hands it straight to the
 on-device model. No upload, no compression, no network at all. The only network use is the one-time
 model download.
 
@@ -165,7 +165,7 @@ learning around the model instead. In order of payoff:
    tokens (`maxTokenContext` 224 / 2 − 1), so the oldest terms are dropped silently for now.
 2. **Replacement rules.** Deterministic fixes for things Whisper always gets wrong
    ("cloud code" → "Claude Code"). Applied after cleanup.
-3. **Learn from your edits (automatic).** After pasting, LocalFlow re-reads the text field ~10 s later.
+3. **Learn from your edits (automatic).** After pasting, Dami re-reads the text field ~10 s later.
    If you changed a word ("Jisoo" → "Jisu"), it proposes adding a dictionary entry or replacement.
    You approve in a "Suggestions" list. Nothing is added silently.
 4. **Style examples for the LLM.** Your own past dictations (raw → final) become few-shot examples,
@@ -304,17 +304,17 @@ Before relying on it for later decisions (speech model choice, accuracy changes)
 ```
 localflow/
 ├── PLAN.md, README.md, LICENSE, CLAUDE.md
-├── project.yml             source of the generated LocalFlow.xcodeproj (git-ignored)
-├── LocalFlow/
-│   ├── App/                LocalFlowApp, AppSettings, Permissions
+├── project.yml             source of the generated Dami.xcodeproj (git-ignored)
+├── Dami/
+│   ├── App/                DamiApp, AppSettings, Permissions
 │   ├── Core/               DictationController, DictationProcessor, HotkeyMonitor, AudioRecorder, InputDevices, Shortcut
 │   ├── Transcription/      Transcriber (WhisperKit)
 │   ├── Insertion/          TextInserter, FocusedField
 │   ├── Storage/            Store (GRDB)
 │   └── UI/                 HUD, MenuContent, OnboardingView, Main/ (Home, History, Dictionary, Settings)
-├── LocalFlowCore/          package: TextPipeline, CleanupRules, ReplacementEngine, HallucinationFilter, PromptLeak,
+├── DamiCore/          package: TextPipeline, CleanupRules, ReplacementEngine, HallucinationFilter, PromptLeak,
 │                           SpokenLanguage, HotkeyMachine, DictationQueue, InsertionSpacing, ModelFiles, CleanupEval
-│                           localflow-eval (executable), tests
+│                           dami-eval (executable), tests
 ├── bench/                  eval clips (git-ignored), scoring scripts, results.md, cleanup_cases.tsv
 ├── docs/                   plans/, sessions/
 └── scripts/                build.sh
@@ -429,13 +429,13 @@ the Roadmap at the top.
 
 ## 8. Portability: one app for any of your Macs
 
-The goal is a self-contained `LocalFlow.app` (or `.dmg`) you can install on any Mac you own, the way
+The goal is a self-contained `Dami.app` (or `.dmg`) you can install on any Mac you own, the way
 you'd install any other app. You don't need Xcode or the source code on those Macs.
 
 **What ships in the app vs. what's downloaded**
 - The app itself is small (~20–50 MB): code only, no models.
 - On first launch, onboarding: grant permissions → pick/auto-pick models → download to
-  `~/Library/Application Support/LocalFlow/Models` → warm-up. Done once per Mac.
+  `~/Library/Application Support/Dami/Models` → warm-up. Done once per Mac.
 - Optional "offline installer": a model folder you can copy from another Mac (or a USB stick)
   instead of downloading.
   It must include both `models/argmaxinc/whisperkit-coreml/` and `models/openai/whisper-large-v3/` (the tokenizer).
@@ -469,7 +469,7 @@ permissions again after every update.
 and (if you have a paid account) notarizes it. You build on this Mac, then install the `.dmg` anywhere.
 
 **What stays in sync between Macs**
-- Synced (via a folder you choose, e.g. iCloud Drive → `LocalFlow/`): dictionary, replacement rules,
+- Synced (via a folder you choose, e.g. iCloud Drive → `Dami/`): dictionary, replacement rules,
   approved edit-learnings, settings, style examples. Small JSON files. The app merges by timestamp, so
   learning on one Mac improves the others.
 - Per-Mac only: history database, saved audio (if enabled), downloaded models, hardware-specific

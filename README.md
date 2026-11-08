@@ -1,4 +1,4 @@
-# LocalFlow
+# Dami
 
 Offline dictation for macOS. Hold a key, speak, and the text is pasted at your cursor. Speech recognition runs
 on your Mac with [WhisperKit](https://github.com/argmaxinc/WhisperKit). There's no account and no subscription,
@@ -6,6 +6,8 @@ and your voice isn't uploaded.
 
 It handles English and one other language, including both in the same sentence, with English words kept in English.
 It's an early version, built for its author's daily use. It learns from your fixes, and only changes what you approve.
+
+Formerly called LocalFlow.
 
 ## Requirements
 
@@ -19,12 +21,12 @@ It's an early version, built for its author's daily use. It learns from your fix
 ```bash
 brew install xcodegen
 # Xcode → Settings → Accounts → your Apple ID → Manage Certificates → + → Apple Development
-scripts/build.sh          # Release build, installs to /Applications/LocalFlow.app and launches it
+scripts/build.sh          # Release build, installs to /Applications/Dami.app and launches it
 ```
 
 Keep the same certificate and install path, so macOS keeps the permissions across rebuilds.
 
-Run the tests with `swift test --package-path LocalFlowCore`.
+Run the tests with `swift test --package-path DamiCore`.
 
 ## Permissions
 
@@ -46,14 +48,14 @@ Run the tests with `swift test --package-path LocalFlowCore`.
 
 ## Learning from your fixes
 
-LocalFlow doesn't retrain Whisper. It learns around it, and only changes anything when you approve.
+Dami doesn't retrain Whisper. It learns around it, and only changes anything when you approve.
 
 - **Fix in History.** Open a dictation, choose Fix…, and save what you meant. History, search, Copy and paste again use the fix,
   with the pasted text kept below it. The pencil on a Recent item in the menu opens the same box.
 - **Fixes where you pasted.** In apps whose text Accessibility can read (Notes, browser text boxes, Terminal), a fix you make to the
   pasted text within 2 minutes is saved the same way. It stops watching when you switch app or field, dictate again, or a password
   field is in use. Some apps can't be read, such as cmux and Google Docs; use Fix in History there.
-- **Suggestions.** After a fix that changes one to three words, LocalFlow asks "Always fix X → Y?", with how many past dictations
+- **Suggestions.** After a fix that changes one to three words, Dami asks "Always fix X → Y?", with how many past dictations
   have it and which words it would touch. Approving adds a Replacement for future dictations. "Not this" isn't asked again. Fixes
   seen where you pasted need the same fix twice, on a word Whisper was unsure of, and wait in Dictionary › Suggestions. One-syllable
   Korean fixes aren't suggested, since a rule like "세 → 네" is too likely to hit something else.
@@ -66,7 +68,7 @@ LocalFlow doesn't retrain Whisper. It learns around it, and only changes anythin
 ## Privacy
 
 - Speech and text stay on your Mac. The network is only used to download the speech model.
-- Text history is stored unencrypted in `~/Library/Application Support/LocalFlow/` until you delete it. By default it's
+- Text history is stored unencrypted in `~/Library/Application Support/Dami/` until you delete it. By default it's
   kept forever. You can change that in Settings → Privacy, including turning history off.
 - Audio is only saved if you turn that on. It's kept for 7, 30 or 90 days.
 - Clipboard: pasting briefly uses the clipboard, then restores what was there. That temporary text is marked so clipboard
@@ -78,7 +80,7 @@ LocalFlow doesn't retrain Whisper. It learns around it, and only changes anythin
   dictation, and follow the history setting.
 - Deleting history overwrites the deleted text in the database file. **Delete all history** also removes the backup and rewrites
   the file.
-- Before the database format changes in an update, a backup copy is made next to it (`LocalFlow.backup.sqlite`). It's deleted 7
+- Before the database format changes in an update, a backup copy is made next to it (`Dami.backup.sqlite`). It's deleted 7
   days later.
 - A recording offered for Retry or Paste anyway stays in memory only, three at most, and is gone when the app quits.
 - For checking reliability and speed, the app keeps counts of dropped dictations by day and the stage times of the last 500
