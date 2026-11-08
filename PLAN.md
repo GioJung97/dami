@@ -19,7 +19,7 @@ right away, in any version.
 | v0.3 | It learns from fixes | `docs/plans/v0.3.md` §6 | Done, merged to `main` 2026-11-05 |
 | v0.3.1 | Fixes from the v0.3 review: no meaning changes, no silent loss, deletion that deletes | `docs/plans/v0.3.1.md` §5 | Done, merged to `main` 2026-11-06 |
 | v0.4 | Where the time goes, and whether a local LLM can clean up safely | `docs/plans/v0.4.md` §6 | Done, merged to `main` 2026-11-06. The model failed the pass line, so Smart isn't built |
-| **v1.0** | **Anyone on a Mac can install and trust it** | See below | No plan yet |
+| **v1.0** | **Anyone on a Mac can install and trust it** | `docs/plans/v1.0.md` §6 | Planned 2026-11-08, branch `v1.0` |
 | After v1.0 | Improve, based on real needs | Each change on its own | Not scheduled, below |
 
 **Long-term goal:** accuracy improves for each person the more they use it, with everything staying on their Mac.
@@ -49,6 +49,7 @@ No LLM in v1.0 (owner, 2026-11-06): Smart mode may be tried again after it, once
 | Learning | Showing what was learned, highlights on low-probability words, re-dictation detection, merged Dictionary |
 | Pasting | Protection when focus changes during processing, checks in apps not yet tried (Safari, Electron, Word) |
 | Cleanup | Smart mode with a local LLM, tried in v0.4 and not passed: what to change first is in `docs/plans/v0.4.md` §7 |
+| Design | Parts left in the system look: History's selected row, the Microphone pop-up, Settings' form backgrounds, sheets (`docs/design/spec.md` §11) |
 | Features | Command mode, per-app modes |
 | Across Macs | Dictionary export and import, backups, sync |
 | Project | CI, paid Apple account and notarization if permissions don't survive updates |
