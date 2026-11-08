@@ -345,6 +345,7 @@ struct OnboardingView: View {
         if step == .done {
             settings.hasCompletedOnboarding = true
             dismissWindow(id: WindowID.onboarding)
+            TourController.shared.startAfterSetup(controller: controller)
             return
         }
         move(1)

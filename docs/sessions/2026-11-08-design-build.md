@@ -35,3 +35,15 @@ committed. `swift test --package-path DamiCore`: 150/150 after each step. Detail
 - Merge `design` into `v1.0`, and when; rename the GitHub repo and push. Both the owner's call.
 - Optional polish of the parts left in the system look (spec §11).
 - Not verified: Increase Contrast, Reduce Motion, VoiceOver, other Macs.
+
+## Quick tour (added to v1.0 by the owner, 2026-11-08)
+
+- After setup, once (`AppSettings.tourShown`), and again from Settings › General › Quick tour. Code: `Dami/UI/Tour/`.
+- The owner asked for a tour you do on the real UI, not cards. A small window with its own text box follows the app's state:
+  hold the keys → listening (points to where the HUD is) → writing → pasted, with retries for a quick tap or nothing recognized.
+  Then a breathing ring and bobbing arrow on the real menu bar icon (follows it every 0.3 s, hides with a note if macOS hides the
+  icon), then notes under the History, Dictionary and Settings keys in the main window.
+- A card version was built to compare and removed after the owner chose the tour on the real UI.
+- It only watches `DictationController.state` and `recent` and the menu opening; dictation itself is unchanged.
+- Owner tested every step in the real app. Not verified: VoiceOver, Reduce Motion, a Mac where the icon sits behind the notch, a
+  first install where the tour starts right after setup (only started from Settings so far).

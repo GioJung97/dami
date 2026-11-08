@@ -25,6 +25,13 @@ struct DamiApp: App {
         .defaultSize(width: 1000, height: 680)
         .windowStyle(.hiddenTitleBar)
 
+        Window("Quick tour", id: WindowID.liveTour) {
+            TourLiveView()
+        }
+        .windowResizability(.contentSize)
+        .windowStyle(.hiddenTitleBar)
+        .defaultPosition(.top)
+
         Window("Welcome to Dami", id: WindowID.onboarding) {
             OnboardingView(controller: controller)
                 .showsDockIconWhileOpen()
@@ -37,6 +44,7 @@ struct DamiApp: App {
 enum WindowID {
     static let main = "main"
     static let onboarding = "onboarding"
+    static let liveTour = "liveTour"
 }
 
 /// Which section of the main window is showing. Shared so the menu can open a specific one.
@@ -69,6 +77,17 @@ final class Navigation: ObservableObject {
     @Published private(set) var windowRequests = 0
     /// The same, for the setup window.
     @Published private(set) var setupWindowRequests = 0
+    /// The same, for the quick tour you do.
+    @Published private(set) var liveTourWindowRequests = 0
+
+    func openMain(section: Section) {
+        self.section = section
+        windowRequests += 1
+    }
+
+    func openTourWindow() {
+        liveTourWindowRequests += 1
+    }
 
     func openSettings(tab: String) {
         section = .settings
@@ -99,6 +118,10 @@ private struct MenuBarLabel: View {
             .accessibilityLabel("Dami")
             .onReceive(Navigation.shared.$windowRequests.dropFirst()) { _ in
                 openWindow(id: WindowID.main)
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            .onReceive(Navigation.shared.$liveTourWindowRequests.dropFirst()) { _ in
+                openWindow(id: WindowID.liveTour)
                 NSApp.activate(ignoringOtherApps: true)
             }
             .onReceive(Navigation.shared.$setupWindowRequests.dropFirst()) { _ in

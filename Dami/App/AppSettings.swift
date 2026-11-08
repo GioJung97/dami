@@ -76,6 +76,8 @@ final class AppSettings: ObservableObject {
     @Published var hasCompletedOnboarding: Bool { didSet { defaults.set(hasCompletedOnboarding, forKey: "hasCompletedOnboarding") } }
     /// The setup step someone is on (`SetupStep`), so setup can continue after the app is reopened.
     @Published var setupStep: Int { didSet { defaults.set(setupStep, forKey: "setupStep") } }
+    /// The quick tour has been shown once after setup. It can still be opened from Settings.
+    @Published var tourShown: Bool { didSet { defaults.set(tourShown, forKey: "tourShown") } }
 
     var launchAtLogin: Bool {
         get { SMAppService.mainApp.status == .enabled }
@@ -112,6 +114,7 @@ final class AppSettings: ObservableObject {
         learnFromFixes = defaults.object(forKey: "learnFromFixes") as? Bool ?? true
         hasCompletedOnboarding = defaults.bool(forKey: "hasCompletedOnboarding")
         setupStep = defaults.integer(forKey: "setupStep")
+        tourShown = defaults.bool(forKey: "tourShown")
     }
 
     /// Applies `appearanceMode` to every window, the menu panel and the HUD. Nil follows the Mac.

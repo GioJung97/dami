@@ -59,6 +59,8 @@ Run the tests with `swift test --package-path DamiCore`.
 - Dami lives in the menu bar (a speech bubble). Its menu has your recent dictations, the language and cleanup choices, and
   **Open Dami…** for Home, History, Dictionary and Settings.
 - Settings › General › Appearance: a theme (paper and ink), a key color, and light, dark or follow the Mac.
+- After setup, a quick tour walks you through a first dictation, the menu and the main window. Take it again from
+  Settings › General › Quick tour.
 - If nothing was recognized in a recording of a second or more, the HUD offers **Retry**, which tries the other language. A
   recording dropped as a phrase Whisper often makes up on silence, such as "Thanks for watching", offers **Paste anyway**.
 

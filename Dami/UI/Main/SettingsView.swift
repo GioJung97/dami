@@ -83,6 +83,12 @@ struct SettingsView: View {
                 ForEach(AppSettings.HUDPosition.allCases) { Text($0.label).tag($0) }
             }
         }
+        Section {
+            LabeledContent("Quick tour") {
+                Button("Show quick tour") { TourController.shared.start(controller: controller) }
+                    .buttonStyle(.secondaryKey)
+            }
+        }
         Section("Appearance") {
             LabeledContent("Mode") {
                 TabKeys(

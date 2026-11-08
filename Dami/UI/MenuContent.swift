@@ -24,6 +24,7 @@ struct MenuContent: View {
         .background(Theme.paper)
         .environment(\.palette, settings.keyColor.palette)
         .environment(\.appTheme, settings.theme)
+        .onAppear { TourController.shared.menuOpened() }
     }
 
     /// Until setup is finished, only what's left and the two ways out, so nobody takes a half-set-up app for a broken one.
