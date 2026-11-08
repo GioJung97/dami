@@ -1,11 +1,13 @@
 import SwiftUI
 
-/// The pill itself. Kept small: 28 pt tall, about the size of a menu bar item.
+/// The HUD: a paper slip, 28 pt tall, about the size of a menu bar item (spec §7).
 struct HUDView: View {
     @ObservedObject var controller: HUDController
+    @ObservedObject private var settings = AppSettings.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let atBottom = AppSettings.shared.hudPosition == .bottomCenter
+        let atBottom = settings.hudPosition == .bottomCenter
         VStack(spacing: 6) {
             if atBottom { noteLabel }
             phaseView
@@ -13,19 +15,20 @@ struct HUDView: View {
         }
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: atBottom ? .bottom : .top)
+        .environment(\.palette, settings.keyColor.palette)
         .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder private var noteLabel: some View {
         if let note = controller.note {
             Text(note)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white)
+                .font(Theme.Font.captionMedium)
+                .foregroundStyle(Theme.onTape)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .padding(.horizontal, 10)
                 .frame(height: 22)
-                .background(Capsule().fill(Color(white: 0.11).opacity(0.92)))
+                .background(RoundedRectangle(cornerRadius: Theme.Radius.tape).fill(Theme.tape))
                 .transition(.opacity)
         }
     }
@@ -36,54 +39,63 @@ struct HUDView: View {
             case .hidden:
                 EmptyView()
             case .recording(let handsFree):
-                pill {
-                    Circle().fill(Color(red: 1, green: 0.27, blue: 0.23)).frame(width: 7, height: 7)
+                slip {
+                    RecordingDot()
                     LevelBars(levels: controller.levels)
                     ElapsedTime(since: controller.recordingStartedAt)
                     if handsFree {
-                        Text("Tap to stop").font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.85))
+                        Text("Tap to stop").font(Theme.Font.captionMedium).foregroundStyle(Theme.ink2)
                     }
                 }
             case .transcribing(let waiting):
-                pill {
-                    ThinkingDots()
+                slip {
+                    ThinkingDots(still: reduceMotion)
                     if waiting > 0 {
-                        Text("Processing · \(waiting) waiting").font(.system(size: 11, weight: .medium)).foregroundStyle(.white)
+                        Text("Processing · \(waiting) waiting").font(Theme.Font.captionMedium).foregroundStyle(Theme.ink)
                     }
                 }
             case .pasted:
-                pill {
-                    Image(systemName: "checkmark").font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(Color(red: 0.19, green: 0.82, blue: 0.35))
+                slip(horizontalPadding: 9) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Theme.onHighlight)
+                        .padding(.horizontal, 2)
+                        .padding(.vertical, 1)
+                        .highlighted()
                 }
             case .copied(let text):
-                pill {
-                    Image(systemName: "doc.on.clipboard").font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color(red: 1, green: 0.84, blue: 0.04))
-                    Text(text).font(.system(size: 11, weight: .medium)).foregroundStyle(.white).lineLimit(1)
+                slip {
+                    Image(systemName: "doc.on.clipboard").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.ink)
+                    TextWithKeycaps(text: text)
                 }
             case .message(let message):
-                pill {
-                    Text(message.text).font(.system(size: 11, weight: .medium)).foregroundStyle(.white).lineLimit(1)
+                slip {
+                    TextWithKeycaps(text: message.text)
                     if let title = message.actionTitle {
                         Button(title) { controller.performMessageAction() }
-                            .buttonStyle(.plain)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Color(red: 0.4, green: 0.72, blue: 1))
+                            .buttonStyle(KeyButtonStyle(kind: .primary, height: 18, compact: true))
                     }
                 }
             }
         }
     }
 
-    private func pill<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+    private func slip<Content: View>(horizontalPadding: CGFloat = 12, @ViewBuilder _ content: () -> Content) -> some View {
         HStack(spacing: 8) { content() }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, horizontalPadding)
             .frame(height: 28)
-            .background(Capsule().fill(Color(white: 0.11).opacity(0.92)))
-            .overlay(Capsule().strokeBorder(.white.opacity(0.08)))
-            .shadow(color: .black.opacity(0.25), radius: 8, y: 3)
-            .transition(.scale(scale: 0.7).combined(with: .opacity))
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.slip).fill(Theme.slip))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.slip).strokeBorder(Theme.slipEdge))
+            .shadow(color: .black.opacity(0.2), radius: 5, y: 3)
+            .transition(reduceMotion ? .opacity : .scale(scale: 0.7).combined(with: .opacity))
+    }
+}
+
+private struct RecordingDot: View {
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        Circle().fill(palette.key).frame(width: 8, height: 8)
     }
 }
 
@@ -94,7 +106,7 @@ private struct LevelBars: View {
         HStack(alignment: .center, spacing: 2) {
             ForEach(levels.indices, id: \.self) { index in
                 Capsule()
-                    .fill(.white)
+                    .fill(Theme.ink)
                     .frame(width: 2.5, height: 3 + CGFloat(levels[index]) * 13)
             }
         }
@@ -110,22 +122,32 @@ private struct ElapsedTime: View {
         TimelineView(.periodic(from: since, by: 1)) { context in
             let seconds = max(0, Int(context.date.timeIntervalSince(since)))
             Text(String(format: "%d:%02d", seconds / 60, seconds % 60))
-                .font(.system(size: 11, weight: .medium).monospacedDigit())
-                .foregroundStyle(.white.opacity(0.9))
+                .font(Theme.Font.monoSmall)
+                .foregroundStyle(Theme.ink2)
         }
     }
 }
 
+/// One dark dot at a time. With Reduce Motion, the middle one stays dark.
 private struct ThinkingDots: View {
+    let still: Bool
+
     var body: some View {
-        TimelineView(.animation(minimumInterval: 0.12)) { context in
-            let step = Int(context.date.timeIntervalSinceReferenceDate / 0.25) % 3
-            HStack(spacing: 4) {
-                ForEach(0..<3) { index in
-                    Circle()
-                        .fill(.white.opacity(index == step ? 1 : 0.35))
-                        .frame(width: 5, height: 5)
-                }
+        if still {
+            dots(step: 1)
+        } else {
+            TimelineView(.animation(minimumInterval: 0.12)) { context in
+                dots(step: Int(context.date.timeIntervalSinceReferenceDate / 0.25) % 3)
+            }
+        }
+    }
+
+    private func dots(step: Int) -> some View {
+        HStack(spacing: 4) {
+            ForEach(0..<3) { index in
+                Circle()
+                    .fill(index == step ? Theme.ink : Theme.keyEdge)
+                    .frame(width: 5, height: 5)
             }
         }
     }

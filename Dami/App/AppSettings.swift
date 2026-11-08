@@ -49,6 +49,8 @@ final class AppSettings: ObservableObject {
     @Published var inputDeviceUID: String? { didSet { defaults.set(inputDeviceUID, forKey: "inputDeviceUID") } }
     @Published var playSounds: Bool { didSet { defaults.set(playSounds, forKey: "playSounds") } }
     @Published var hudPosition: HUDPosition { didSet { defaults.set(hudPosition.rawValue, forKey: "hudPosition") } }
+    /// The colour of the main action keys, the Ready dot and highlights (design spec D1). Look only.
+    @Published var keyColor: KeyColor { didSet { defaults.set(keyColor.rawValue, forKey: "keyColor") } }
     @Published var retentionDays: Int { didSet { defaults.set(retentionDays, forKey: "retentionDays") } }
     @Published var audioRetentionDays: Int { didSet { defaults.set(audioRetentionDays, forKey: "audioRetentionDays") } }
     @Published var saveAudio: Bool { didSet { defaults.set(saveAudio, forKey: "saveAudio") } }
@@ -85,6 +87,7 @@ final class AppSettings: ObservableObject {
         inputDeviceUID = defaults.string(forKey: "inputDeviceUID")
         playSounds = defaults.object(forKey: "playSounds") as? Bool ?? true
         hudPosition = HUDPosition(rawValue: defaults.string(forKey: "hudPosition") ?? "") ?? .bottomCenter
+        keyColor = KeyColor(rawValue: defaults.string(forKey: "keyColor") ?? "") ?? .orange
         retentionDays = defaults.object(forKey: "retentionDays") as? Int ?? 0
         audioRetentionDays = defaults.object(forKey: "audioRetentionDays") as? Int ?? 30
         saveAudio = defaults.bool(forKey: "saveAudio")
