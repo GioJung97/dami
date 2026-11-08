@@ -169,3 +169,114 @@ struct HighlightMark: ViewModifier {
 extension View {
     func highlighted(_ isOn: Bool = true) -> some View { modifier(HighlightMark(isOn: isOn)) }
 }
+
+/// A row of keys where one is chosen, in place of a segmented control (spec §6 "Tab keys").
+struct TabKeys<Value: Hashable>: View {
+    let label: String
+    let options: [(value: Value, title: String)]
+    @Binding var selection: Value
+    var width: CGFloat? = nil
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(options.indices, id: \.self) { index in
+                let option = options[index]
+                Button(option.title) { selection = option.value }
+                    .buttonStyle(TabKeyStyle(isOn: option.value == selection, width: width))
+                    .accessibilityAddTraits(option.value == selection ? .isSelected : [])
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(label)
+    }
+}
+
+/// One tab key. The chosen one is dark and pressed in.
+struct TabKeyStyle: ButtonStyle {
+    let isOn: Bool
+    var width: CGFloat? = nil
+    var height: CGFloat = 20
+
+    func makeBody(configuration: Configuration) -> some View {
+        let down = isOn || configuration.isPressed
+        configuration.label
+            .font(Theme.Font.keyLabelSmall)
+            .tracking(0.6)
+            .textCase(.uppercase)
+            .lineLimit(1)
+            .foregroundStyle(isOn ? Theme.onSelected : Theme.ink)
+            .padding(.horizontal, 8)
+            .frame(minWidth: width, minHeight: height)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.Radius.keycap)
+                    .fill(isOn ? Theme.selected : Theme.keyFace)
+                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.keycap).strokeBorder(isOn ? Theme.selected : Theme.keyEdge))
+                    .background(
+                        RoundedRectangle(cornerRadius: Theme.Radius.keycap)
+                            .fill(Theme.keyDepthNeutral)
+                            .offset(y: down ? Theme.Depth.pressed : Theme.Depth.keycap)
+                    )
+            )
+            .offset(y: down ? Theme.Depth.keycap - Theme.Depth.pressed : 0)
+            .padding(.bottom, Theme.Depth.keycap)
+            .contentShape(Rectangle())
+    }
+}
+
+/// A square checkbox in ink; filled with the key colour when on.
+struct InkCheckboxStyle: ToggleStyle {
+    @Environment(\.palette) private var palette
+
+    func makeBody(configuration: Configuration) -> some View {
+        Button { configuration.isOn.toggle() } label: {
+            HStack(spacing: 8) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(configuration.isOn ? palette.key : Color.clear)
+                    .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(configuration.isOn ? palette.key : Theme.ink, lineWidth: 1.5))
+                    .overlay {
+                        if configuration.isOn {
+                            Image(systemName: "checkmark").font(.system(size: 8, weight: .heavy)).foregroundStyle(Theme.onKey)
+                        }
+                    }
+                    .frame(width: 14, height: 14)
+                configuration.label
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isToggle)
+        .accessibilityValue(configuration.isOn ? "on" : "off")
+    }
+}
+
+/// A status dot. Ready and listening use the key colour (listening adds a ring), errors are red, the rest grey. Always shown with a word.
+struct StatusDot: View {
+    enum Kind { case ready, listening, error, idle }
+    let kind: Kind
+    @Environment(\.palette) private var palette
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: 8, height: 8)
+            .background(Circle().fill(kind == .listening ? palette.ring : .clear).frame(width: 14, height: 14))
+            .frame(width: 14, height: 14)
+            .accessibilityHidden(true)
+    }
+
+    private var color: Color {
+        switch kind {
+        case .ready, .listening: palette.key
+        case .error: Theme.danger
+        case .idle: Theme.ink2
+        }
+    }
+}
+
+/// A 1 pt line in the rule colour.
+struct Rule: View {
+    var body: some View {
+        Rectangle().fill(Theme.rule).frame(height: 1)
+    }
+}
