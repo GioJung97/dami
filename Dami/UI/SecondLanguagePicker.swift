@@ -39,6 +39,7 @@ struct SecondLanguagePicker: View {
 /// changes, so the pills never move under the pointer.
 struct LanguageSentencePicker: View {
     @ObservedObject private var settings = AppSettings.shared
+    @Environment(\.palette) private var palette
 
     private static let englishSample = "Let's move the meeting to Thursday and send the notes after."
     /// English words used in every language's mixed prompt, highlighted in the sample.
@@ -58,42 +59,56 @@ struct LanguageSentencePicker: View {
                 }
             }
             VStack(alignment: .leading, spacing: 4) {
-                (Text("Try saying: “") + sample + Text("”"))
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
+                Text(sample)
+                    .font(Theme.Font.callout)
+                    .foregroundStyle(Theme.ink2)
+                    .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
                 if let second = settings.secondLanguage, !second.verified {
                     Text("Beta: \(second.name) hasn't been tested on real voices yet.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.tertiary)
+                        .font(Theme.Font.footnote)
+                        .foregroundStyle(Theme.ink2)
                 }
             }
             .frame(height: 72, alignment: .topLeading)
         }
     }
 
+    /// "I speak English and 한국어." with the chosen language on the highlighter.
     private var sentence: some View {
-        Group {
-            if let second = settings.secondLanguage {
-                Text("I speak English and ") + Text(second.nativeName).foregroundColor(.accentColor).underline() + Text(".")
-            } else {
-                Text("I speak English ") + Text("only").foregroundColor(.accentColor).underline() + Text(".")
-            }
-        }
-        .font(.system(size: 30, weight: .bold))
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
+        var text = AttributedString(settings.secondLanguage == nil ? "I speak English " : "I speak English and ")
+        text.append(marked(settings.secondLanguage?.nativeName ?? "only"))
+        text.append(AttributedString("."))
+        return Text(text)
+            .font(.system(size: 30, weight: .semibold, design: .serif))
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
     }
 
-    /// The sample with the English terms in the accent color (only when mixing).
-    private var sample: Text {
-        guard let second = settings.secondLanguage else { return Text(Self.englishSample) }
-        var result = Text("")
+    private func marked(_ word: String) -> AttributedString {
+        var run = AttributedString(word)
+        run.backgroundColor = palette.highlight
+        run.foregroundColor = Theme.onHighlight
+        return run
+    }
+
+    /// "Try saying: “…”", with the English terms on the highlighter (only when mixing).
+    private var sample: AttributedString {
+        var result = AttributedString("Try saying: “")
+        guard let second = settings.secondLanguage else {
+            result.append(AttributedString(Self.englishSample + "”"))
+            return result
+        }
         var word = ""
         func flush() {
             guard !word.isEmpty else { return }
-            let isEnglish = Self.englishTerms.contains(word.lowercased())
-            result = result + (isEnglish ? Text(word).foregroundColor(.accentColor).fontWeight(.semibold) : Text(word))
+            if Self.englishTerms.contains(word.lowercased()) {
+                var run = marked(word)
+                run.inlinePresentationIntent = .stronglyEmphasized
+                result.append(run)
+            } else {
+                result.append(AttributedString(word))
+            }
             word = ""
         }
         for character in second.mixedPrompt {
@@ -101,28 +116,38 @@ struct LanguageSentencePicker: View {
                 word.append(character)
             } else {
                 flush()
-                result = result + Text(String(character))
+                result.append(AttributedString(String(character)))
             }
         }
         flush()
+        result.append(AttributedString("”"))
         return result
     }
 
+    /// A language key. The chosen one is dark and pressed in; "Just English" has a dashed edge.
     private func pill(_ title: String, help: String, selected: Bool, dashed: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 14))
                 .padding(.horizontal, 13)
                 .padding(.vertical, 6)
-                .foregroundStyle(selected ? Color.white : dashed ? Color.secondary : Color.primary)
-                .background(Capsule().fill(selected ? Color.accentColor : Color.clear))
-                .overlay(
-                    Capsule().strokeBorder(
-                        selected ? Color.accentColor : Color(nsColor: .separatorColor),
-                        style: StrokeStyle(lineWidth: 1, dash: dashed && !selected ? [4, 3] : [])
-                    )
-                )
-                .contentShape(Capsule())
+                .foregroundStyle(selected ? AnyShapeStyle(Theme.onSelected) : dashed ? AnyShapeStyle(Theme.ink2) : AnyShapeStyle(Theme.ink))
+                .background {
+                    if selected {
+                        RoundedRectangle(cornerRadius: Theme.Radius.key).fill(Theme.selected)
+                    } else if dashed {
+                        RoundedRectangle(cornerRadius: Theme.Radius.key)
+                            .strokeBorder(Theme.keyEdge, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                    } else {
+                        RoundedRectangle(cornerRadius: Theme.Radius.key)
+                            .fill(Theme.keyFace)
+                            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.key).strokeBorder(Theme.keyEdge))
+                            .background(RoundedRectangle(cornerRadius: Theme.Radius.key).fill(Theme.keyDepthNeutral).offset(y: Theme.Depth.key))
+                    }
+                }
+                .offset(y: selected ? Theme.Depth.key - Theme.Depth.pressed : 0)
+                .padding(.bottom, Theme.Depth.key)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(help)

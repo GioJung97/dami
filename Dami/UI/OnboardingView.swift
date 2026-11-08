@@ -54,6 +54,9 @@ struct OnboardingView: View {
             if !repairingPermissions { footer }
         }
         .frame(width: 640, height: 480)
+        .foregroundStyle(Theme.ink)
+        .background(Theme.paper)
+        .tint(Palette.standard.key)
         .navigationTitle(repairingPermissions ? "Dami Permissions" : "Welcome to Dami")
         .onChange(of: controller.permissionsReady) { _, ready in
             if repairingPermissions && ready { dismissWindow(id: WindowID.onboarding) }
@@ -70,22 +73,24 @@ struct OnboardingView: View {
     }
 
     @ViewBuilder private var footer: some View {
-        Divider()
-        HStack {
+        Rule()
+        HStack(spacing: 10) {
             HStack(spacing: 6) {
                 ForEach(Step.allCases, id: \.self) { item in
-                    Circle()
-                        .fill(item == step ? Color.accentColor : Color(nsColor: .separatorColor))
-                        .frame(width: 8, height: 8)
+                    Capsule()
+                        .fill(stepColor(item))
+                        .frame(width: item == step ? 22 : 8, height: 8)
                 }
             }
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel("Step \(step.rawValue + 1) of \(Step.allCases.count)")
             Spacer()
             if step != .welcome && step != .done {
                 Button("Back") { move(-1) }
+                    .buttonStyle(KeyButtonStyle(kind: .secondary, height: 28))
             }
             Button(nextTitle) { next() }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(KeyButtonStyle(kind: .primary, height: 28))
                 .keyboardShortcut(.defaultAction)
                 .disabled(!canContinue)
         }
@@ -93,19 +98,21 @@ struct OnboardingView: View {
         .padding(.vertical, 16)
     }
 
+    /// Current step: a key-colour bar. Done: ink2. Still to do: the edge colour.
+    private func stepColor(_ item: Step) -> AnyShapeStyle {
+        if item == step { return AnyShapeStyle(Palette.standard.key) }
+        return item.rawValue < step.rawValue ? AnyShapeStyle(Theme.ink2) : AnyShapeStyle(Theme.keyEdge)
+    }
+
     // MARK: Steps
 
     private var welcome: some View {
         VStack(spacing: 16) {
-            Image(systemName: "waveform")
-                .font(.system(size: 36, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 72, height: 72)
-                .background(RoundedRectangle(cornerRadius: 18).fill(Color.accentColor))
-            Text("Welcome to Dami").font(.system(size: 28, weight: .bold))
+            DamiMark(size: 96)
+            Text("Welcome to Dami").font(Theme.Font.bigStepTitle).tracking(-0.4)
             Text("Speak in English, another language, or both. Your words appear wherever you're typing. Everything runs on this Mac, so your voice never leaves it.")
                 .font(.system(size: 15))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.ink2)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 440)
         }
@@ -128,25 +135,27 @@ struct OnboardingView: View {
                 permissionRow(.microphone, "Microphone", "To hear you while you hold the shortcut.", permissions.microphone) {
                     permissions.requestMicrophone()
                 }
-                Divider()
+                Rule()
                 permissionRow(.accessibility, "Accessibility", "To notice the shortcut, and paste where your cursor is.", permissions.accessibility) {
                     permissions.requestAccessibility()
                 }
                 if hotkeyIsStuck {
-                    Divider()
+                    Rule()
                     permissionRow(.inputMonitoring, "Input Monitoring", "This Mac also needs this one, to notice the shortcut in any app.", false) {
                         permissions.requestInputMonitoring()
                     }
                 }
             }
-            .background(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor)))
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.card).fill(Theme.keyFace))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(Theme.keyEdge))
             if mayNeedReopen {
                 HStack(spacing: 12) {
                     Text(reopenAdvice)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
+                        .font(Theme.Font.footnote)
+                        .foregroundStyle(Theme.ink2)
                     Spacer()
                     Button("Quit & Reopen") { permissions.quitAndReopen() }
+                        .buttonStyle(.secondaryKey)
                 }
             }
         }
@@ -170,19 +179,22 @@ struct OnboardingView: View {
         HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(name).font(.system(size: 14, weight: .semibold))
-                Text(why).font(.system(size: 12)).foregroundStyle(.secondary)
+                Text(why).font(Theme.Font.footnote).foregroundStyle(Theme.ink2)
             }
             Spacer()
             if granted {
-                Label("Allowed", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                    .font(.system(size: 13, weight: .semibold))
+                HStack(spacing: 6) {
+                    DoneCheck()
+                    Text("Allowed").font(Theme.Font.keyLabel).tracking(Theme.keyLabelTracking).textCase(.uppercase)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Allowed")
             } else {
                 Button("Allow…") {
                     requested.insert(kind)
                     request()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.primaryKey)
             }
         }
         .padding(14)
@@ -194,24 +206,26 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text(Transcriber.modelDisplayName).fontWeight(.semibold)
                 if case .failed(let problem) = controller.modelStatus {
-                    Text(problem.message).foregroundStyle(.secondary)
+                    Text(problem.message).foregroundStyle(Theme.danger)
                     HStack {
                         Text(problem.advice)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
+                            .font(Theme.Font.footnote)
+                            .foregroundStyle(Theme.ink2)
                         Spacer()
                         Button(problem.actionTitle) { controller.retryModel() }
+                            .buttonStyle(.primaryKey)
                     }
                 } else {
                     downloadStage
                     prepareStage
                     Text("This Mac: \(MemoryInfo.macDescription)")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
+                        .font(Theme.Font.footnote)
+                        .foregroundStyle(Theme.ink2)
                 }
             }
             .padding(18)
-            .background(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor)))
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.card).fill(Theme.keyFace))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(Theme.keyEdge))
         }
     }
 
@@ -220,7 +234,8 @@ struct OnboardingView: View {
             if case .downloading(let progress) = controller.modelStatus {
                 modelStageLabel("1. Download", done: false) {
                     Text("\(Int(progress * Double(Transcriber.modelSizeMB))) of \(Transcriber.modelSizeMB) MB")
-                        .foregroundStyle(.secondary)
+                        .font(Theme.Font.mono)
+                        .foregroundStyle(Theme.ink2)
                         .monospacedDigit()
                 }
                 ProgressView(value: progress)
@@ -237,8 +252,8 @@ struct OnboardingView: View {
                 ProgressView()
                     .progressViewStyle(.linear)
                 Text("This can take a few minutes the first time. macOS doesn't report a percentage for this step.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .font(Theme.Font.footnote)
+                    .foregroundStyle(Theme.ink2)
             }
         }
     }
@@ -249,9 +264,7 @@ struct OnboardingView: View {
         HStack(spacing: 6) {
             Text(name)
             if done {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                    .accessibilityLabel("Done")
+                DoneCheck()
             }
             Spacer()
             trailing()
@@ -267,40 +280,45 @@ struct OnboardingView: View {
                 Spacer()
             }
             Text("\"\((settings.secondLanguage ?? .english).practiceSentence)\"")
-                .font(.system(size: 15))
+                .font(.system(size: 17, design: .serif))
                 .frame(maxWidth: .infinity)
-                .padding(12)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .controlBackgroundColor)))
+                .padding(10)
             TextEditor(text: $practiceText)
                 .font(.system(size: 15))
+                .scrollContentBackground(.hidden)
                 .frame(height: 60)
                 .padding(6)
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.accentColor, lineWidth: 2))
+                .background(RoundedRectangle(cornerRadius: Theme.Radius.card).fill(Theme.keyFace))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(Palette.standard.key, lineWidth: 2))
                 .accessibilityLabel("Your words appear here")
         }
     }
 
     private var done: some View {
         VStack(spacing: 16) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 56))
-                .foregroundStyle(.green)
-            Text("You're all set").font(.system(size: 26, weight: .bold))
+            Image(systemName: "checkmark")
+                .font(.system(size: 30, weight: .bold))
+                .foregroundStyle(Theme.onHighlight)
+                .frame(width: 64, height: 64)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Palette.standard.highlight))
+                .rotationEffect(.degrees(-3))
+                .accessibilityHidden(true)
+            Text("You're all set").font(Theme.Font.bigStepTitle)
             Text("Dami lives in the menu bar. Hold \(settings.shortcut.displayName) in any app to dictate. Change the shortcut any time in Settings.")
                 .font(.system(size: 15))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.ink2)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 440)
             Toggle("Open Dami at login", isOn: Binding(get: { settings.launchAtLogin }, set: { settings.launchAtLogin = $0 }))
-                .toggleStyle(.checkbox)
+                .toggleStyle(InkCheckboxStyle())
         }
         .padding(.top, 20)
     }
 
     private func title(_ title: String, _ subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.system(size: 24, weight: .bold))
-            Text(subtitle).font(.system(size: 14)).foregroundStyle(.secondary)
+            Text(title).font(Theme.Font.stepTitle)
+            Text(subtitle).font(Theme.Font.body).foregroundStyle(Theme.ink2)
         }
     }
 
@@ -338,5 +356,18 @@ struct OnboardingView: View {
 
     private func move(_ delta: Int) {
         step = Step(rawValue: step.rawValue + delta) ?? step
+    }
+}
+
+/// An ink check on the highlighter: "done" in setup.
+private struct DoneCheck: View {
+    var body: some View {
+        Image(systemName: "checkmark")
+            .font(.system(size: 9, weight: .heavy))
+            .foregroundStyle(Theme.onHighlight)
+            .padding(.horizontal, 3)
+            .padding(.vertical, 2)
+            .background(RoundedRectangle(cornerRadius: 3).fill(Palette.standard.highlight))
+            .accessibilityLabel("Done")
     }
 }
