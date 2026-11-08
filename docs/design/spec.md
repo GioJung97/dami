@@ -1,6 +1,6 @@
 # Dami design spec: JD2 "Notebook with keys"
 
-**Status:** draft for the owner's approval (2026-11-07). Nothing here is built yet.
+**Status:** approved by the owner 2026-11-07; D6 (themes) added and approved 2026-11-08. Being built on the `design` branch.
 **Drafts:** canvas https://claude.ai/artifact/RhjsDeJm6UhfrCK1EFyqht ("Chosen" and "Dami" rows). The canvas is private to the owner.
 **Track:** design, separate from the v1.0 plan, done before v1.0 ships (`docs/sessions/2026-11-07-rename-and-design.md`).
 
@@ -29,6 +29,8 @@ Each of these changes more than paint. The spec assumes the answer in **bold**. 
 | D3 | Home stats | A "Today" row of four plain stats | **Same four numbers and labels in a small LCD panel.** Labels as today: Words dictated, Time saved vs. typing, Average speed, Day streak. |
 | D4 | Menu panel | System menu look, translucent | **Drawn as paper**, no translucency. Same rows. Check on a busy wallpaper. |
 | D5 | UI spelling | Not decided anywhere | **US English in the app** ("Key color", like macOS's "Accent color"). |
+| D6 | Theme setting (added 2026-11-08) | None | **Add it** (asked for by the owner): Settings › General › Appearance › "Theme", 7 options (§3.5), Cream default. Sets paper, cards, ink and lines; the key color is chosen separately. Stored in UserDefaults. |
+| D7 | Light / dark (added 2026-11-08) | Follows the Mac | **Add a Mode setting** (asked for by the owner): Settings › General › Appearance › "Mode": System (default), Light, Dark. Applies to every window, the menu panel and the HUD. |
 
 Corrections made to the drafts while writing this spec (the drafts had drifted from the app; the app's version wins):
 - History actions are **Copy, Fix…, Add a word to Dictionary…, This is what I said / Unmark, Delete**. The drafts showed a
@@ -41,9 +43,15 @@ Corrections made to the drafts while writing this spec (the drafts had drifted f
 
 ### 3.1 Base tokens
 
+Values below are the **Cream** theme. `paper`, `ink`, `ink2`, `rule`, `keyFace` and `keyEdge` come from the theme (§3.5);
+`keyDepth` is `keyEdge` in light and `#0E0D0B` in dark; `selected`/`tape` are `ink`, `onSelected`/`onTape` are `paper`;
+`slip` is `keyFace` (Cream light keeps `#FBF7EE`); `track` is `rule` (Cream light `#E6DECF`, dark `#10120E`). `danger`, `lcd*`,
+`onHighlight` and white on keys are the same on every theme.
+
+
 | Token | Light | Dark | Used for |
 |---|---|---|---|
-| `paper` | per key colour, see 3.2 (default `#F6F1E7`) | `#1C1A17` | Window, menu panel and onboarding background |
+| `paper` | per theme, see 3.5 (Cream `#F6F1E7`) | per theme (Cream `#1C1A17`) | Window, menu panel and onboarding background |
 | `ink` | `#1F1B16` | `#EDE6D8` | Main text, icons, checkbox edges |
 | `ink2` | `#685F54` | `#A69D8E` | Secondary text, captions, times, placeholders |
 | `rule` | `#DCD2C1` | `#36322C` | Dividers, row lines, window edge |
@@ -61,7 +69,7 @@ Corrections made to the drafts while writing this spec (the drafts had drifted f
 
 ### 3.2 Key colours (user setting, D1)
 
-| Option | `key` light | `key` dark | `keyDepth` light | `highlight` light | `highlight` dark | `paper` light |
+| Option | `key` light | `key` dark | `keyDepth` light | `highlight` light | `highlight` dark | `paper` light (not used since D6) |
 |---|---|---|---|---|---|---|
 | **Orange** (default) | `#CC4410` | `#CC4410` | `#8A2C08` | `#F2D74E` | `#E3C53A` | `#F6F1E7` |
 | Ink blue | `#2F5BD3` | `#426AD7` | `#1E3E99` | `#F2D74E` | `#E3C53A` | `#F5F2EA` |
@@ -72,7 +80,7 @@ Corrections made to the drafts while writing this spec (the drafts had drifted f
 | Rose | `#B03A5B` | `#C14366` | `#7A2540` | `#FFD3B0` | `#F0B98F` | `#F8F1EE` |
 | Ochre | `#8A6100` | `#946800` | `#5C4100` | `#F5E68A` | `#E0CF6C` | `#F6F2E6` |
 
-In dark mode `keyDepth` is `#000000` for every option. `onHighlight` is always `#1F1B16`, also in dark mode.
+Since D6 the paper comes from the theme, not the key color. In dark mode `keyDepth` is `#000000` for every option. `onHighlight` is always `#1F1B16`, also in dark mode.
 The **app icon and onboarding always use Orange**: the icon is the same for everyone, and onboarding runs before the user picks.
 
 ### 3.3 Where colour may go
@@ -104,6 +112,21 @@ Text needs 4.5:1; shapes that carry meaning need 3:1.
 
 Found while measuring: a third grey (`#857C70`) the drafts used for the "Beta: … hasn't been tested" line is only 3.7:1. That line
 uses `ink2` instead. `onDisabled` on `disabled` is 2.6:1, which WCAG allows for controls that can't be used.
+
+### 3.5 Themes (D6)
+
+| Theme | Light paper / card / ink / ink2 / rule / edge | Dark paper / card / ink / ink2 / rule / edge |
+|---|---|---|
+| **Cream** (default) | `#F6F1E7` `#FFFDF8` `#1F1B16` `#685F54` `#DCD2C1` `#D6CCBA` | `#1C1A17` `#2A2723` `#EDE6D8` `#A69D8E` `#36322C` `#3E3934` |
+| White | `#FAFAF8` `#FFFFFF` `#1A1A1A` `#5F5F63` `#E3E3E0` `#D9D9D6` | `#161617` `#242426` `#EDEDED` `#A1A1A6` `#323234` `#3A3A3D` |
+| Stone | `#ECEBE8` `#F8F7F5` `#1E1E1C` `#5C5B57` `#D4D2CD` `#C9C7C1` | `#19191B` `#252629` `#E6E6E3` `#A0A09B` `#37383B` `#434447` |
+| Sepia | `#EFE3CC` `#FAF3E4` `#2B1F12` `#6B5843` `#D9C8A8` `#CDB991` | `#1F1912` `#2C241A` `#EFE2CB` `#B09D80` `#3B3125` `#4A3E2F` |
+| Sage | `#EEF1E8` `#FAFBF6` `#1C211B` `#5A6356` `#D3DACB` `#C8D0BF` | `#171B17` `#232823` `#E3E9DF` `#9DA898` `#303730` `#3B433B` |
+| Mist | `#EEF1F5` `#FBFCFE` `#1A1F27` `#576070` `#D5DBE4` `#C9D0DB` | `#141820` `#1F2430` `#E4E8EF` `#9AA3B2` `#2C3240` `#39404F` |
+| Blush | `#F6EEEC` `#FFFAF9` `#241A19` `#6A5755` `#E2D3D0` `#D8C6C2` | `#1D1717` `#2A2222` `#EEE2E0` `#A99896` `#3A3030` `#473B3A` |
+
+Measured on every theme: `ink`, `ink2` and `danger` on paper and cards at least 5.3:1; all eight key colors at least 3:1 against
+paper and cards, light and dark (Stone's dark values were darkened to get there). Onboarding always uses Cream with Orange.
 
 ## 4. Type
 
@@ -173,8 +196,9 @@ Vocabulary terms as chips with ✕ and "Not in the hint" in `danger`. Replacemen
 Suggestions as cards with Always fix / Not this, then DECLINED with Ask again. All explanations as today.
 
 **Settings.** Title; section list on the left (General, Shortcut, Language, Models, Privacy, Sync), chosen one in `selected`. Groups as
-cards. General gains **APPEARANCE › Key color** (D1) with the eight swatches and: "Used for the main action, the Ready dot and
-highlights. Light and dark follow your Mac."
+cards. General gains **APPEARANCE**: Mode (D7, three tab keys), Theme (D6, seven small pages) and Key color (D1, eight swatches),
+then: "Theme sets the paper, ink and cards; key color sets the main action, the Ready dot and highlights. Mode System follows
+your Mac."
 
 **HUD.** Paper slip, 28 pt, all states and wording as today. Recording: `key` dot, level bars in `ink`, time in `mono`, "Tap to stop"
 as plain text in hands-free. Transcribing: three dots, one dark at a time. Sent: ink check on `highlight`, no word. Copied: ink
@@ -204,7 +228,7 @@ hourglass, waveform, record.circle.fill, ellipsis.circle, exclamationmark.triang
   `ink` underline.
 - **VoiceOver:** labels unchanged. Swatches are a radio group named "Key color". Uppercase key labels read in normal case. Status dot
   reads its word.
-- **Light and dark** follow the Mac. No in-app switch (not asked for).
+- **Light and dark** follow the Mac by default; Mode (D7) can fix Dami to Light or Dark.
 
 ## 9. Implementation notes
 
@@ -212,8 +236,10 @@ hourglass, waveform, record.circle.fill, ellipsis.circle, exclamationmark.triang
   with the system; key colour options as an enum; font, spacing, radius and shadow constants.
 - `Dami/UI/Theme/KeyStyles.swift`: `ButtonStyle`s for primary, secondary, tab and destructive keys; `Keycap`, `Card`, `HighlightMark`,
   `StatusDot`, `PaperSlip` views. Replaces today's `KeycapRow`, `Card`, `PageHeader` looks in `MainView.swift`.
-- `AppSettings.keyColor` (UserDefaults `keyColor`, default `orange`). This is the only change outside `Dami/UI`, and it adds no
-  behaviour beyond storing the choice.
+- `AppSettings.keyColor` (UserDefaults `keyColor`, default `orange`) and `AppSettings.theme` (`theme`, default `cream`). These are
+  the only changes outside `Dami/UI`, and they add no behaviour beyond storing the choices.
+- Theme colours are a `ShapeStyle` (`ThemeColor`) resolved from the environment (`appTheme`, colour scheme, contrast), set once
+  at the window, menu panel and HUD.
 - Asset catalog via `project.yml`: `AppIcon`, and the five glyphs as template SVG/PDF images.
 - Order: theme file → keys and small components → HUD → menu panel → main window → onboarding → icon and glyphs. Each step is
   something the owner can look at in the real app.

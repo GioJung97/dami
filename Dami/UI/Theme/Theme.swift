@@ -3,27 +3,31 @@ import SwiftUI
 
 /// Every colour, font, size and shadow the app draws with (docs/design/spec.md). Views use these, never literal values.
 enum Theme {
-    // MARK: Base colours (spec §3.1). Light, dark, and an optional Increase Contrast value for each.
+    // MARK: Colours that follow the theme (spec §3.1 and §3.5). Resolved from the environment when drawn,
+    // so a theme change, light/dark and Increase Contrast all apply without the views knowing.
 
-    // `paper` follows the key colour, so it lives in `Palette`.
-    static let ink = Color.dynamic(light: 0x1F1B16, dark: 0xEDE6D8)
-    static let ink2 = Color.dynamic(light: 0x685F54, dark: 0xA69D8E, highContrastLight: 0x1F1B16, highContrastDark: 0xEDE6D8)
-    static let rule = Color.dynamic(light: 0xDCD2C1, dark: 0x36322C, highContrastLight: 0x79736B, highContrastDark: 0x969089)
-    static let keyFace = Color.dynamic(light: 0xFFFDF8, dark: 0x2A2723)
-    static let keyEdge = Color.dynamic(light: 0xD6CCBA, dark: 0x3E3934, highContrastLight: 0x79736B, highContrastDark: 0x969089)
-    static let keyDepthNeutral = Color.dynamic(light: 0xD6CCBA, dark: 0x0E0D0B)
-    static let selected = Color.dynamic(light: 0x1F1B16, dark: 0xEDE6D8)
-    static let onSelected = Color.dynamic(light: 0xF6F1E7, dark: 0x1C1A17)
+    static let paper = ThemeColor(.paper)
+    static let ink = ThemeColor(.ink)
+    static let ink2 = ThemeColor(.ink2)
+    static let rule = ThemeColor(.rule)
+    static let keyFace = ThemeColor(.keyFace)
+    static let keyEdge = ThemeColor(.keyEdge)
+    static let keyDepthNeutral = ThemeColor(.keyDepth)
+    static let selected = ThemeColor(.ink)
+    static let onSelected = ThemeColor(.paper)
+    static let slip = ThemeColor(.slip)
+    static let slipEdge = ThemeColor(.slipEdge)
+    static let tape = ThemeColor(.ink)
+    static let onTape = ThemeColor(.paper)
+    static let track = ThemeColor(.track)
+    static let disabled = ThemeColor(.keyEdge)
+
+    // MARK: Colours that are the same on every theme
+
     static let danger = Color.dynamic(light: 0xA3321F, dark: 0xE88A72)
     static let lcd = Color.dynamic(light: 0x262A24, dark: 0x10120E)
     static let lcdText = Color(hex: 0xDDE8B5)
     static let lcdLabel = Color(hex: 0x9FAE7A)
-    static let slip = Color.dynamic(light: 0xFBF7EE, dark: 0x2A2723)
-    static let slipEdge = Color.dynamic(light: 0x1F1B16, dark: 0xEDE6D8, lightAlpha: 0.24, darkAlpha: 0.18, highContrastAlpha: 0.6)
-    static let tape = Color.dynamic(light: 0x1F1B16, dark: 0xEDE6D8)
-    static let onTape = Color.dynamic(light: 0xF6F1E7, dark: 0x1C1A17)
-    static let track = Color.dynamic(light: 0xE6DECF, dark: 0x10120E)
-    static let disabled = Color.dynamic(light: 0xD6CCBA, dark: 0x3E3934)
     static let onDisabled = Color(hex: 0x857C70)
     /// Text on the highlighter, in light and dark mode alike.
     static let onHighlight = Color(hex: 0x1F1B16)
@@ -75,7 +79,7 @@ enum Theme {
     }
 }
 
-/// The user's key colour (spec §3.2). The icon and onboarding always use `.orange`.
+/// The user's key colour (spec §3.2). The icon and onboarding always use `.orange`. The paper comes from `AppTheme`.
 enum KeyColor: String, CaseIterable, Identifiable {
     case orange, blue, green, teal, plum, graphite, rose, ochre
     var id: String { rawValue }
@@ -95,14 +99,14 @@ enum KeyColor: String, CaseIterable, Identifiable {
 
     var palette: Palette {
         switch self {
-        case .orange: Palette(key: (0xCC4410, 0xCC4410), depth: 0x8A2C08, highlight: (0xF2D74E, 0xE3C53A), paper: 0xF6F1E7)
-        case .blue: Palette(key: (0x2F5BD3, 0x426AD7), depth: 0x1E3E99, highlight: (0xF2D74E, 0xE3C53A), paper: 0xF5F2EA)
-        case .green: Palette(key: (0x2F7D55, 0x2F7E56), depth: 0x1F5639, highlight: (0xF2D74E, 0xE3C53A), paper: 0xF3F1E8)
-        case .teal: Palette(key: (0x12808A, 0x12808A), depth: 0x0B575E, highlight: (0xFFD966, 0xE8C24A), paper: 0xF4F2EB)
-        case .plum: Palette(key: (0x7A3E8F, 0x9A52B4), depth: 0x55296A, highlight: (0xF6C1D6, 0xE5A3BF), paper: 0xF7F2EE)
-        case .graphite: Palette(key: (0x2B2B2B, 0x707070), depth: 0x000000, highlight: (0xA8E6CF, 0x86D4B4), paper: 0xF3F3F0)
-        case .rose: Palette(key: (0xB03A5B, 0xC14366), depth: 0x7A2540, highlight: (0xFFD3B0, 0xF0B98F), paper: 0xF8F1EE)
-        case .ochre: Palette(key: (0x8A6100, 0x946800), depth: 0x5C4100, highlight: (0xF5E68A, 0xE0CF6C), paper: 0xF6F2E6)
+        case .orange: Palette(key: (0xCC4410, 0xCC4410), depth: 0x8A2C08, highlight: (0xF2D74E, 0xE3C53A))
+        case .blue: Palette(key: (0x2F5BD3, 0x426AD7), depth: 0x1E3E99, highlight: (0xF2D74E, 0xE3C53A))
+        case .green: Palette(key: (0x2F7D55, 0x2F7E56), depth: 0x1F5639, highlight: (0xF2D74E, 0xE3C53A))
+        case .teal: Palette(key: (0x12808A, 0x12808A), depth: 0x0B575E, highlight: (0xFFD966, 0xE8C24A))
+        case .plum: Palette(key: (0x7A3E8F, 0x9A52B4), depth: 0x55296A, highlight: (0xF6C1D6, 0xE5A3BF))
+        case .graphite: Palette(key: (0x2B2B2B, 0x707070), depth: 0x000000, highlight: (0xA8E6CF, 0x86D4B4))
+        case .rose: Palette(key: (0xB03A5B, 0xC14366), depth: 0x7A2540, highlight: (0xFFD3B0, 0xF0B98F))
+        case .ochre: Palette(key: (0x8A6100, 0x946800), depth: 0x5C4100, highlight: (0xF5E68A, 0xE0CF6C))
         }
     }
 }
@@ -112,19 +116,90 @@ struct Palette {
     let key: Color
     let keyDepth: Color
     let highlight: Color
-    let paper: Color
     /// The key colour at 30%, for the ring around the dot while listening.
     let ring: Color
 
-    init(key: (light: UInt32, dark: UInt32), depth: UInt32, highlight: (light: UInt32, dark: UInt32), paper: UInt32) {
+    init(key: (light: UInt32, dark: UInt32), depth: UInt32, highlight: (light: UInt32, dark: UInt32)) {
         self.key = .dynamic(light: key.light, dark: key.dark)
         keyDepth = .dynamic(light: depth, dark: 0x000000)
         self.highlight = .dynamic(light: highlight.light, dark: highlight.dark)
-        self.paper = .dynamic(light: paper, dark: 0x1C1A17)
         ring = .dynamic(light: key.light, dark: key.dark, lightAlpha: 0.3, darkAlpha: 0.3)
     }
 
     static let standard = KeyColor.orange.palette
+}
+
+/// The user's theme (spec §3.5, D6): paper, cards, ink and lines, in light and dark. Onboarding always uses `.cream`.
+enum AppTheme: String, CaseIterable, Identifiable {
+    case cream, white, stone, sepia, sage, mist, blush
+    var id: String { rawValue }
+
+    var name: String { rawValue.capitalized }
+
+    struct Tokens {
+        let paper, keyFace, ink, ink2, rule, keyEdge: UInt32
+    }
+
+    var light: Tokens {
+        switch self {
+        case .cream: Tokens(paper: 0xF6F1E7, keyFace: 0xFFFDF8, ink: 0x1F1B16, ink2: 0x685F54, rule: 0xDCD2C1, keyEdge: 0xD6CCBA)
+        case .white: Tokens(paper: 0xFAFAF8, keyFace: 0xFFFFFF, ink: 0x1A1A1A, ink2: 0x5F5F63, rule: 0xE3E3E0, keyEdge: 0xD9D9D6)
+        case .stone: Tokens(paper: 0xECEBE8, keyFace: 0xF8F7F5, ink: 0x1E1E1C, ink2: 0x5C5B57, rule: 0xD4D2CD, keyEdge: 0xC9C7C1)
+        case .sepia: Tokens(paper: 0xEFE3CC, keyFace: 0xFAF3E4, ink: 0x2B1F12, ink2: 0x6B5843, rule: 0xD9C8A8, keyEdge: 0xCDB991)
+        case .sage: Tokens(paper: 0xEEF1E8, keyFace: 0xFAFBF6, ink: 0x1C211B, ink2: 0x5A6356, rule: 0xD3DACB, keyEdge: 0xC8D0BF)
+        case .mist: Tokens(paper: 0xEEF1F5, keyFace: 0xFBFCFE, ink: 0x1A1F27, ink2: 0x576070, rule: 0xD5DBE4, keyEdge: 0xC9D0DB)
+        case .blush: Tokens(paper: 0xF6EEEC, keyFace: 0xFFFAF9, ink: 0x241A19, ink2: 0x6A5755, rule: 0xE2D3D0, keyEdge: 0xD8C6C2)
+        }
+    }
+
+    var dark: Tokens {
+        switch self {
+        case .cream: Tokens(paper: 0x1C1A17, keyFace: 0x2A2723, ink: 0xEDE6D8, ink2: 0xA69D8E, rule: 0x36322C, keyEdge: 0x3E3934)
+        case .white: Tokens(paper: 0x161617, keyFace: 0x242426, ink: 0xEDEDED, ink2: 0xA1A1A6, rule: 0x323234, keyEdge: 0x3A3A3D)
+        case .stone: Tokens(paper: 0x19191B, keyFace: 0x252629, ink: 0xE6E6E3, ink2: 0xA0A09B, rule: 0x37383B, keyEdge: 0x434447)
+        case .sepia: Tokens(paper: 0x1F1912, keyFace: 0x2C241A, ink: 0xEFE2CB, ink2: 0xB09D80, rule: 0x3B3125, keyEdge: 0x4A3E2F)
+        case .sage: Tokens(paper: 0x171B17, keyFace: 0x232823, ink: 0xE3E9DF, ink2: 0x9DA898, rule: 0x303730, keyEdge: 0x3B433B)
+        case .mist: Tokens(paper: 0x141820, keyFace: 0x1F2430, ink: 0xE4E8EF, ink2: 0x9AA3B2, rule: 0x2C3240, keyEdge: 0x39404F)
+        case .blush: Tokens(paper: 0x1D1717, keyFace: 0x2A2222, ink: 0xEEE2E0, ink2: 0xA99896, rule: 0x3A3030, keyEdge: 0x473B3A)
+        }
+    }
+}
+
+/// A colour that follows the theme in the environment, light/dark and Increase Contrast.
+struct ThemeColor: ShapeStyle {
+    enum Role { case paper, keyFace, ink, ink2, rule, keyEdge, keyDepth, slip, slipEdge, track }
+    let role: Role
+    init(_ role: Role) { self.role = role }
+
+    func resolve(in environment: EnvironmentValues) -> Color {
+        let dark = environment.colorScheme == .dark
+        let highContrast = environment.colorSchemeContrast == .increased
+        return Self.color(role, theme: environment.appTheme, dark: dark, highContrast: highContrast)
+    }
+
+    static func color(_ role: Role, theme: AppTheme, dark: Bool, highContrast: Bool) -> Color {
+        let t = dark ? theme.dark : theme.light
+        switch role {
+        case .paper: return Color(hex: t.paper)
+        case .keyFace: return Color(hex: t.keyFace)
+        case .ink: return Color(hex: t.ink)
+        case .ink2: return Color(hex: highContrast ? t.ink : t.ink2)
+        case .rule: return highContrast ? Color(hex: t.ink, alpha: 0.6) : Color(hex: t.rule)
+        case .keyEdge: return highContrast ? Color(hex: t.ink, alpha: 0.6) : Color(hex: t.keyEdge)
+        case .keyDepth: return dark ? Color(hex: 0x0E0D0B) : Color(hex: t.keyEdge)
+        case .slip:
+            if theme == .cream && !dark { return Color(hex: 0xFBF7EE) }
+            return Color(hex: t.keyFace)
+        case .slipEdge: return Color(hex: t.ink, alpha: highContrast ? 0.6 : (dark ? 0.18 : 0.24))
+        case .track:
+            if dark { return Color(hex: 0x10120E) }
+            return theme == .cream ? Color(hex: 0xE6DECF) : Color(hex: t.rule)
+        }
+    }
+}
+
+private struct AppThemeKey: EnvironmentKey {
+    static let defaultValue = AppTheme.cream
 }
 
 private struct PaletteKey: EnvironmentKey {
@@ -136,6 +211,12 @@ extension EnvironmentValues {
     var palette: Palette {
         get { self[PaletteKey.self] }
         set { self[PaletteKey.self] = newValue }
+    }
+
+    /// Set next to `palette` from `AppSettings.theme`.
+    var appTheme: AppTheme {
+        get { self[AppThemeKey.self] }
+        set { self[AppThemeKey.self] = newValue }
     }
 }
 

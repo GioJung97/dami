@@ -21,8 +21,9 @@ struct MenuContent: View {
         }
         .foregroundStyle(Theme.ink)
         .font(Theme.Font.callout)
-        .background(settings.keyColor.palette.paper)
+        .background(Theme.paper)
         .environment(\.palette, settings.keyColor.palette)
+        .environment(\.appTheme, settings.theme)
     }
 
     /// Until setup is finished, only what's left and the two ways out, so nobody takes a half-set-up app for a broken one.
@@ -314,7 +315,7 @@ struct MenuRowStyle: ButtonStyle {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .contentShape(Rectangle())
-                .foregroundStyle(hovering ? Theme.onHighlight : Theme.ink)
+                .foregroundStyle(hovering ? AnyShapeStyle(Theme.onHighlight) : AnyShapeStyle(Theme.ink))
                 .background(RoundedRectangle(cornerRadius: 5).fill(hovering ? palette.highlight : .clear))
                 .onHover { hovering = $0 }
         }

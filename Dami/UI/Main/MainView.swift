@@ -22,10 +22,13 @@ struct MainView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .foregroundStyle(Theme.ink)
-        .background(palette.paper)
+        .background(Theme.paper)
         .environment(\.palette, palette)
+        .environment(\.appTheme, settings.theme)
         .tint(palette.key)
         .frame(minWidth: 860, minHeight: 560)
+        // Back to General for the next time the window opens. On close, so a tab asked for by the menu isn't overwritten.
+        .onDisappear { navigation.settingsTab = SettingsView.Tab.general.rawValue }
     }
 }
 

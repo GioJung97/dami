@@ -54,22 +54,22 @@ struct KeyButtonStyle: ButtonStyle {
                 .animation(.easeOut(duration: 0.08), value: pressed)
         }
 
-        private var foreground: Color {
-            guard isEnabled else { return Theme.onDisabled }
+        private var foreground: AnyShapeStyle {
+            guard isEnabled else { return AnyShapeStyle(Theme.onDisabled) }
             switch kind {
-            case .primary: return Theme.onKey
-            case .secondary: return Theme.ink
-            case .destructive: return Theme.danger
+            case .primary: return AnyShapeStyle(Theme.onKey)
+            case .secondary: return AnyShapeStyle(Theme.ink)
+            case .destructive: return AnyShapeStyle(Theme.danger)
             }
         }
 
-        private var fill: Color {
-            guard isEnabled else { return Theme.disabled }
-            return kind == .primary ? palette.key : Theme.keyFace
+        private var fill: AnyShapeStyle {
+            guard isEnabled else { return AnyShapeStyle(Theme.disabled) }
+            return kind == .primary ? AnyShapeStyle(palette.key) : AnyShapeStyle(Theme.keyFace)
         }
 
-        private var depthColor: Color {
-            kind == .primary ? palette.keyDepth : Theme.keyDepthNeutral
+        private var depthColor: AnyShapeStyle {
+            kind == .primary ? AnyShapeStyle(palette.keyDepth) : AnyShapeStyle(Theme.keyDepthNeutral)
         }
     }
 }
@@ -107,7 +107,7 @@ struct Keycap: View {
 struct TextWithKeycaps: View {
     let text: String
     var font: Font = Theme.Font.captionMedium
-    var color: Color = Theme.ink
+    var color: ThemeColor = Theme.ink
     static let keys = ["⌘V", "Esc"]
 
     var body: some View {
@@ -160,7 +160,7 @@ struct HighlightMark: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .foregroundStyle(isOn ? Theme.onHighlight : Theme.ink)
+            .foregroundStyle(isOn ? AnyShapeStyle(Theme.onHighlight) : AnyShapeStyle(Theme.ink))
             .padding(.horizontal, isOn ? 2 : 0)
             .background(isOn ? RoundedRectangle(cornerRadius: Theme.Radius.mark).fill(palette.highlight) : nil)
     }
@@ -232,7 +232,7 @@ struct InkCheckboxStyle: ToggleStyle {
             HStack(spacing: 8) {
                 RoundedRectangle(cornerRadius: 3)
                     .fill(configuration.isOn ? palette.key : Color.clear)
-                    .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(configuration.isOn ? palette.key : Theme.ink, lineWidth: 1.5))
+                    .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(configuration.isOn ? AnyShapeStyle(palette.key) : AnyShapeStyle(Theme.ink), lineWidth: 1.5))
                     .overlay {
                         if configuration.isOn {
                             Image(systemName: "checkmark").font(.system(size: 8, weight: .heavy)).foregroundStyle(Theme.onKey)
@@ -265,11 +265,11 @@ struct StatusDot: View {
             .accessibilityHidden(true)
     }
 
-    private var color: Color {
+    private var color: AnyShapeStyle {
         switch kind {
-        case .ready, .listening: palette.key
-        case .error: Theme.danger
-        case .idle: Theme.ink2
+        case .ready, .listening: AnyShapeStyle(palette.key)
+        case .error: AnyShapeStyle(Theme.danger)
+        case .idle: AnyShapeStyle(Theme.ink2)
         }
     }
 }

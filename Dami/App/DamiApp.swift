@@ -5,6 +5,10 @@ struct DamiApp: App {
     @StateObject private var controller = DictationController()
     @StateObject private var navigation = Navigation.shared
 
+    init() {
+        AppSettings.shared.applyAppearance()
+    }
+
     var body: some Scene {
         MenuBarExtra {
             MenuContent(controller: controller)
@@ -57,6 +61,8 @@ final class Navigation: ObservableObject {
     @Published var section: Section = .home
     /// Settings tab to show next, by name.
     @Published var requestedSettingsTab: String?
+    /// The Settings tab last shown, kept while the main window stays open. Back to General when it closes.
+    @Published var settingsTab = "General"
     /// A dictation to open in History with its fix box showing.
     @Published var requestedFix: Int64?
     /// Bumped to open the main window from code that can't reach SwiftUI's `openWindow`.

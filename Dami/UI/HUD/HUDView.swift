@@ -16,6 +16,7 @@ struct HUDView: View {
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: atBottom ? .bottom : .top)
         .environment(\.palette, settings.keyColor.palette)
+        .environment(\.appTheme, settings.theme)
         .accessibilityElement(children: .combine)
     }
 

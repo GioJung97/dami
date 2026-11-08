@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import DamiCore
 import ServiceManagement
@@ -18,6 +19,13 @@ final class AppSettings: ObservableObject {
     enum LanguageMode: String, CaseIterable, Identifiable {
         case auto, english, second
         var id: String { rawValue }
+    }
+
+    /// Light or dark for Dami only, or follow the Mac (design spec D7).
+    enum AppearanceMode: String, CaseIterable, Identifiable {
+        case system, light, dark
+        var id: String { rawValue }
+        var label: String { rawValue.capitalized }
     }
 
     enum HUDPosition: String, CaseIterable, Identifiable {
@@ -50,6 +58,14 @@ final class AppSettings: ObservableObject {
     @Published var playSounds: Bool { didSet { defaults.set(playSounds, forKey: "playSounds") } }
     @Published var hudPosition: HUDPosition { didSet { defaults.set(hudPosition.rawValue, forKey: "hudPosition") } }
     /// The colour of the main action keys, the Ready dot and highlights (design spec D1). Look only.
+    /// Paper, cards, ink and lines (design spec D6). Look only.
+    @Published var appearanceMode: AppearanceMode {
+        didSet {
+            defaults.set(appearanceMode.rawValue, forKey: "appearanceMode")
+            applyAppearance()
+        }
+    }
+    @Published var theme: AppTheme { didSet { defaults.set(theme.rawValue, forKey: "theme") } }
     @Published var keyColor: KeyColor { didSet { defaults.set(keyColor.rawValue, forKey: "keyColor") } }
     @Published var retentionDays: Int { didSet { defaults.set(retentionDays, forKey: "retentionDays") } }
     @Published var audioRetentionDays: Int { didSet { defaults.set(audioRetentionDays, forKey: "audioRetentionDays") } }
@@ -87,6 +103,8 @@ final class AppSettings: ObservableObject {
         inputDeviceUID = defaults.string(forKey: "inputDeviceUID")
         playSounds = defaults.object(forKey: "playSounds") as? Bool ?? true
         hudPosition = HUDPosition(rawValue: defaults.string(forKey: "hudPosition") ?? "") ?? .bottomCenter
+        appearanceMode = AppearanceMode(rawValue: defaults.string(forKey: "appearanceMode") ?? "") ?? .system
+        theme = AppTheme(rawValue: defaults.string(forKey: "theme") ?? "") ?? .cream
         keyColor = KeyColor(rawValue: defaults.string(forKey: "keyColor") ?? "") ?? .orange
         retentionDays = defaults.object(forKey: "retentionDays") as? Int ?? 0
         audioRetentionDays = defaults.object(forKey: "audioRetentionDays") as? Int ?? 30
@@ -94,6 +112,15 @@ final class AppSettings: ObservableObject {
         learnFromFixes = defaults.object(forKey: "learnFromFixes") as? Bool ?? true
         hasCompletedOnboarding = defaults.bool(forKey: "hasCompletedOnboarding")
         setupStep = defaults.integer(forKey: "setupStep")
+    }
+
+    /// Applies `appearanceMode` to every window, the menu panel and the HUD. Nil follows the Mac.
+    func applyAppearance() {
+        switch appearanceMode {
+        case .system: NSApplication.shared.appearance = nil
+        case .light: NSApplication.shared.appearance = NSAppearance(named: .aqua)
+        case .dark: NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
+        }
     }
 
     /// Display label for a mode: "Auto", "EN", or the second language's code.

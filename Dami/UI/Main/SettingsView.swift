@@ -5,7 +5,11 @@ struct SettingsView: View {
     @ObservedObject var controller: DictationController
     @ObservedObject private var settings = AppSettings.shared
     @ObservedObject private var navigation = Navigation.shared
-    @State private var tab = Tab.shortcut
+    /// Kept in `Navigation` so it survives a trip to Home or History while the window is open.
+    private var tab: Tab {
+        get { Tab(rawValue: navigation.settingsTab) ?? .general }
+        nonmutating set { navigation.settingsTab = newValue.rawValue }
+    }
 
     enum Tab: String, CaseIterable, Identifiable {
         case general = "General", shortcut = "Shortcut", language = "Language", models = "Models"
@@ -28,7 +32,7 @@ struct SettingsView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 10)
                                 .frame(height: 28)
-                                .background(RoundedRectangle(cornerRadius: Theme.Radius.key).fill(tab == item ? Theme.selected : .clear))
+                                .background(RoundedRectangle(cornerRadius: Theme.Radius.key).fill(tab == item ? AnyShapeStyle(Theme.selected) : AnyShapeStyle(Color.clear)))
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -80,6 +84,15 @@ struct SettingsView: View {
             }
         }
         Section("Appearance") {
+            LabeledContent("Mode") {
+                TabKeys(
+                    label: "Mode",
+                    options: AppSettings.AppearanceMode.allCases.map { ($0, $0.label) },
+                    selection: $settings.appearanceMode,
+                    width: 58
+                )
+            }
+            ThemePicker()
             KeyColorPicker()
         }
     }
@@ -407,7 +420,7 @@ private struct KeyColorPicker: View {
             }
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Key color")
-            Text("Used for the main action, the Ready dot and highlights. Light and dark follow your Mac.")
+            Text("Theme sets the paper, ink and cards; key color sets the main action, the Ready dot and highlights. Mode System follows your Mac.")
                 .font(Theme.Font.footnote)
                 .foregroundStyle(Theme.ink2)
         }
@@ -435,7 +448,67 @@ private struct KeyColorPicker: View {
                 }
                 .frame(width: 26, height: 26)
                 .padding(3)
-                .overlay(Circle().strokeBorder(isOn ? Theme.ink : .clear, lineWidth: 2))
+                .overlay(Circle().strokeBorder(isOn ? AnyShapeStyle(Theme.ink) : AnyShapeStyle(Color.clear), lineWidth: 2))
+                Text(option.name)
+                    .font(.system(size: 10.5, weight: isOn ? .bold : .regular))
+                    .foregroundStyle(Theme.ink)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(option.name)
+        .accessibilityAddTraits(isOn ? [.isSelected] : [])
+    }
+}
+
+/// Settings › General › Appearance › Theme (spec D6): seven small pages, a radio group for VoiceOver.
+private struct ThemePicker: View {
+    @ObservedObject private var settings = AppSettings.shared
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            LabeledContent("Theme") {
+                Text(settings.theme.name).foregroundStyle(Theme.ink2)
+            }
+            HStack(spacing: 12) {
+                ForEach(AppTheme.allCases) { option in
+                    page(option)
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Theme")
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func page(_ option: AppTheme) -> some View {
+        let isOn = settings.theme == option
+        let dark = colorScheme == .dark
+        func c(_ role: ThemeColor.Role) -> Color { ThemeColor.color(role, theme: option, dark: dark, highContrast: false) }
+        return Button { settings.theme = option } label: {
+            VStack(spacing: 4) {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(c(.paper))
+                    .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(c(.keyEdge)))
+                    .overlay(alignment: .topLeading) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Capsule().fill(c(.ink)).frame(width: 14, height: 2)
+                            Capsule().fill(c(.ink).opacity(0.45)).frame(width: 20, height: 2)
+                        }
+                        .padding(.leading, 4)
+                        .padding(.top, 5)
+                    }
+                    .overlay(alignment: .bottomTrailing) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(c(.keyFace))
+                            .overlay(RoundedRectangle(cornerRadius: 2).strokeBorder(c(.keyEdge)))
+                            .frame(width: 10, height: 7)
+                            .padding(3)
+                    }
+                    .frame(width: 34, height: 22)
+                    .padding(2)
+                    .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(isOn ? AnyShapeStyle(Theme.ink) : AnyShapeStyle(Color.clear), lineWidth: 2))
                 Text(option.name)
                     .font(.system(size: 10.5, weight: isOn ? .bold : .regular))
                     .foregroundStyle(Theme.ink)
