@@ -97,6 +97,10 @@ testers on other versions never see it.
 reach or quit the app. Until setup is done it opens a small panel with what's left, "Continue setup" and "Quit". The lock depends only
 on `hasCompletedOnboarding`, so History stays reachable if a permission is removed later.
 
+**Found 2026-11-07 (owner's setup retest), for v1.0:** after Allow in macOS's Microphone prompt, focus goes back to the app that
+was in front before, and the owner had to switch back to Dami. The setup window stays open behind. Likely fix: bring the setup
+window forward once the microphone request returns. Accessibility needed no reopen, as expected.
+
 **Not verified**
 - The Input Monitoring row and its advice, which can't be reproduced on this Mac.
 - The in-app "Quit & Reopen" button. It wasn't recorded as pressed.
@@ -147,6 +151,10 @@ isn't known which one fixed it. That app session had run since the first launch,
 **Not known:** the cause, whether it happens on every fresh install, and whether it is tied to setup, Spaces or cmux. It matters
 for v1.0 because a new user who sees no HUD can't tell recording has started. **Check on the next fresh install** (a tester's Mac
 or a new user account): does the HUD show during the first recording right after setup, before any reopen?
+
+**Retest, same day:** settings and permissions reset (model kept), setup run again, then a recording right after setup with no
+reopen: the HUD showed. So it didn't come back on a second fresh setup. Still unknown: a first install that also downloads the model,
+and other Macs.
 
 **Unrelated, seen at the same time:** the menu bar item sometimes disappears when an app with many menus (cmux, Cursor) is in
 front. That's macOS hiding status items behind the notch. Dami's item sits just right of it.
