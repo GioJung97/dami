@@ -37,7 +37,7 @@ speak English plus one other language (Korean is the tested one) or both mixed, 
   `~/Library/Application Support/Dami/`. Dated history (`docs/sessions/`, `docs/plans/v0*`, `bench/cleanup_results.md`) keeps the
   old name on purpose. The old app, data folder, caches, defaults and permission entries were removed on the owner's say
   (2026-11-07); a backup is in `~/Documents/LocalFlow-backup-2026-11-07`. The GitHub repo is still named `localflow`.
-- **Design (JD2 "Notebook with keys") is built on branch `design`** (from `v1.0`, 2026-11-08), not yet merged. Spec:
+- **Design (JD2 "Notebook with keys") is built and merged into `v1.0`** (owner, 2026-11-08). Spec:
   `docs/design/spec.md`. All colours, fonts and sizes come from `Dami/UI/Theme/`; no literal values in views. Theme, key color and
   light/dark are user settings. App icon: `scripts/make-icon.swift`; README GIF: `scripts/make-readme-demo.swift` (made-up text).
 - **v0.4 is finished and on `main`** (owner, 2026-11-06), after v0.3.1 (2026-11-06), v0.3 (2026-11-05) and v0.2 (2026-11-04). The next version starts on a new branch from

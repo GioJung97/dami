@@ -1,7 +1,7 @@
 # Dami design spec: JD2 "Notebook with keys"
 
 **Status:** approved by the owner 2026-11-07; D6 (themes) and D7 (light/dark mode) added and approved 2026-11-08.
-**Built** on the `design` branch, steps 1–6 and the README, each checked by the owner in the real app (2026-11-08). Not merged yet.
+**Built** on the `design` branch, steps 1–6 and the README, each checked by the owner in the real app, and merged into `v1.0` (2026-11-08).
 Still in the system look: History's selected row, the Microphone pop-up, Settings' grouped form, sheets (see §11).
 **Drafts:** canvas https://claude.ai/artifact/RhjsDeJm6UhfrCK1EFyqht ("Chosen" and "Dami" rows). The canvas is private to the owner.
 **Track:** design, separate from the v1.0 plan, done before v1.0 ships (`docs/sessions/2026-11-07-rename-and-design.md`).
