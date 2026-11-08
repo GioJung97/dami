@@ -10,8 +10,8 @@ struct SecondScriptTermHint: View {
     var body: some View {
         if let second = settings.secondLanguage, second.script?.matches(term) == true {
             Text("\(second.name) terms don't help here, since Vocabulary only reaches English dictations. Use Replacements to fix how a \(second.name) word comes out.")
-                .font(.system(size: 12))
-                .foregroundStyle(.orange)
+                .font(Theme.Font.footnote)
+                .foregroundStyle(Theme.danger)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -33,14 +33,15 @@ struct DictionaryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             PageHeader(title: "Dictionary", subtitle: "Names and terms Dami should always spell your way.")
-            Picker("Section", selection: $tab) {
-                Text("Vocabulary · \(store.vocabulary.count)").tag(Tab.vocabulary)
-                Text("Replacements · \(store.replacements.count)").tag(Tab.replacements)
-                Text(pendingCount > 0 ? "Suggestions · \(pendingCount)" : "Suggestions").tag(Tab.suggestions)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(width: 420)
+            TabKeys(
+                label: "Section",
+                options: [
+                    (Tab.vocabulary, "Vocabulary · \(store.vocabulary.count)"),
+                    (Tab.replacements, "Replacements · \(store.replacements.count)"),
+                    (Tab.suggestions, pendingCount > 0 ? "Suggestions · \(pendingCount)" : "Suggestions"),
+                ],
+                selection: $tab
+            )
 
             switch tab {
             case .vocabulary: vocabulary
@@ -49,7 +50,9 @@ struct DictionaryView: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(28)
+        .padding(.horizontal, 52)
+        .padding(.top, 26)
+        .padding(.bottom, 22)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
@@ -61,7 +64,7 @@ struct DictionaryView: View {
                     .frame(width: 320)
                     .onSubmit(addTerm)
                 Button("Add", action: addTerm)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.primaryKey)
                     .disabled(newTerm.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             SecondScriptTermHint(term: newTerm)
@@ -70,37 +73,43 @@ struct DictionaryView: View {
                     ForEach(store.vocabulary) { term in
                         HStack(spacing: 6) {
                             Text(term.term).lineLimit(1)
-                                .foregroundStyle(fit.leftOut.contains(term.term) ? .secondary : .primary)
+                                .foregroundStyle(fit.leftOut.contains(term.term) ? Theme.ink2 : Theme.ink)
                             Spacer(minLength: 0)
                             if fit.leftOut.contains(term.term) {
                                 Text("Not in the hint")
                                     .font(.system(size: 10))
-                                    .foregroundStyle(.orange)
+                                    .foregroundStyle(Theme.danger)
                                     .help("Whisper's hint has room for a limited number of terms, newest first. This one doesn't fit.")
                             }
                             Button {
                                 store.removeTerm(term)
                             } label: {
-                                Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                                Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.ink2)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Remove \(term.term)")
                         }
                         .padding(.horizontal, 12)
                         .frame(height: 30)
-                        .background(Capsule().strokeBorder(Color(nsColor: .separatorColor)))
+                        .background(
+                            RoundedRectangle(cornerRadius: Theme.Radius.key)
+                                .fill(Theme.keyFace)
+                                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.key).strokeBorder(Theme.keyEdge))
+                                .background(RoundedRectangle(cornerRadius: Theme.Radius.key).fill(Theme.keyDepthNeutral).offset(y: Theme.Depth.keycap))
+                        )
+                        .padding(.bottom, Theme.Depth.keycap)
                     }
                 }
             }
             if !fit.leftOut.isEmpty {
                 Text("\(fit.leftOut.count) of these don't fit in Whisper's hint, which has room for a limited number. The newest terms are used. Remove ones you no longer need, or use Replacements for them.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.orange)
+                    .font(Theme.Font.footnote)
+                    .foregroundStyle(Theme.danger)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Text("These help English dictations only: Whisper gets them as a spelling hint. For your second language and mixed sentences, or terms it still mishears, use Replacements.")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .font(Theme.Font.footnote)
+                .foregroundStyle(Theme.ink2)
         }
     }
 
@@ -110,19 +119,19 @@ struct DictionaryView: View {
                 TextField("When Whisper writes…", text: $newFind)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 220)
-                Image(systemName: "arrow.right").foregroundStyle(.secondary)
+                Image(systemName: "arrow.right").foregroundStyle(Theme.ink2)
                 TextField("Replace with…", text: $newReplace)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 220)
                     .onSubmit(addReplacement)
                 Button("Add", action: addReplacement)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.primaryKey)
                     .disabled(newFind.trimmingCharacters(in: .whitespaces).isEmpty || newReplace.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             Table(store.replacements) {
                 TableColumn("When Whisper writes") { Text($0.find) }
-                TableColumn("Replace with") { Text($0.replace).fontWeight(.semibold) }
-                TableColumn("Used") { Text($0.uses == 1 ? "1 time" : "\($0.uses) times").foregroundStyle(.secondary) }
+                TableColumn("Replace with") { Text($0.replace).fontWeight(.semibold).highlighted() }
+                TableColumn("Used") { Text($0.uses == 1 ? "1 time" : "\($0.uses) times").font(Theme.Font.mono).foregroundStyle(Theme.ink2) }
                     .width(80)
                 TableColumn("") { rule in
                     Button {
@@ -136,9 +145,12 @@ struct DictionaryView: View {
                 .width(32)
             }
             .frame(minHeight: 240)
+            .scrollContentBackground(.hidden)
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.card).fill(Theme.keyFace))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(Theme.keyEdge))
             Text("Rules match whole words, ignoring case. Korean also matches with particles such as 을, 에서 or 에서도 after. Japanese, Chinese and Thai match anywhere in the text.")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .font(Theme.Font.footnote)
+                .foregroundStyle(Theme.ink2)
         }
     }
 
@@ -150,30 +162,31 @@ struct DictionaryView: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("When you fix a word in History, Dami offers to fix it every time. Nothing changes until you say so.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .font(Theme.Font.footnote)
+                    .foregroundStyle(Theme.ink2)
                 if pending.isEmpty && declined.isEmpty {
                     Card {
-                        Text("No suggestions yet").font(.system(size: 15, weight: .semibold))
+                        Text("No suggestions yet").font(Theme.Font.sectionTitle)
                         Text("Fix a dictation in History, and a word you changed shows up here if you haven't answered it there.")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
+                            .font(Theme.Font.footnote)
+                            .foregroundStyle(Theme.ink2)
                     }
                     .frame(maxWidth: 560)
                 }
                 if !pending.isEmpty {
-                    Text("WAITING FOR AN ANSWER").font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
+                    Text("WAITING FOR AN ANSWER").font(Theme.Font.keyLabel).tracking(Theme.keyLabelTracking).foregroundStyle(Theme.ink2)
                     ForEach(pending) { SuggestionBox(suggestion: $0) }
                 }
                 if !declined.isEmpty {
-                    Text("DECLINED").font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
+                    Text("DECLINED").font(Theme.Font.keyLabel).tracking(Theme.keyLabelTracking).foregroundStyle(Theme.ink2)
                     ForEach(declined) { suggestion in
                         HStack {
                             Text(suggestion.find)
-                            Image(systemName: "arrow.right").foregroundStyle(.secondary)
+                            Image(systemName: "arrow.right").foregroundStyle(Theme.ink2)
                             Text(suggestion.replace)
                             Spacer()
                             Button("Ask again") { store.askAgain(suggestion) }
+                                .buttonStyle(.secondaryKey)
                         }
                         .frame(maxWidth: 560)
                     }
@@ -205,30 +218,32 @@ struct SuggestionBox: View {
             HStack(spacing: 6) {
                 Text("Always fix")
                 Text("\u{201C}\(suggestion.find)\u{201D}").fontWeight(.semibold)
-                Image(systemName: "arrow.right").foregroundStyle(.secondary)
-                Text("\u{201C}\(suggestion.replace)\u{201D}").fontWeight(.semibold)
+                Image(systemName: "arrow.right").foregroundStyle(Theme.ink2)
+                Text("\u{201C}\(suggestion.replace)\u{201D}").fontWeight(.bold).highlighted()
                 Text("?")
             }
             .font(.system(size: 13))
             if let preview {
                 Text(previewText(preview))
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .font(Theme.Font.footnote)
+                    .foregroundStyle(Theme.ink2)
                     .fixedSize(horizontal: false, vertical: true)
             }
             HStack {
                 Button("Always fix") { Store.shared.answer(suggestion, accept: true) }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.primaryKey)
                 Button("Not this") { Store.shared.answer(suggestion, accept: false) }
+                    .buttonStyle(.secondaryKey)
                 Spacer()
                 Text("Only future dictations change.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    .font(Theme.Font.caption)
+                    .foregroundStyle(Theme.ink2)
             }
         }
         .padding(12)
         .frame(maxWidth: 560, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.card).fill(Theme.keyFace))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(Theme.keyEdge))
         .onAppear { preview = Store.shared.preview(find: suggestion.find) }
     }
 

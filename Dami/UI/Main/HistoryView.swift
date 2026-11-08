@@ -27,29 +27,27 @@ struct HistoryView: View {
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 240)
             }
-            Picker("Language", selection: $filter) {
-                ForEach(filters, id: \.0) { Text($0.1).tag($0.0) }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(width: 320)
+            TabKeys(label: "Language", options: filters.map { ($0.0, $0.1) }, selection: $filter, width: 64)
 
             if settings.retentionDays < 0 {
-                Text("History is off (Settings › Privacy).").foregroundStyle(.secondary)
+                Text("History is off (Settings › Privacy).").foregroundStyle(Theme.ink2)
             }
 
             HSplitView {
                 List(selection: $selection) {
                     ForEach(groupedByDay, id: \.day) { group in
-                        Section(group.day) {
+                        Section {
                             ForEach(group.items) { item in
                                 HistoryRow(dictation: item)
                                     .tag(item.id)
                                     .onAppear { if item.id == items.last?.id { loadMore() } }
                             }
+                        } header: {
+                            Text(group.day).font(Theme.Font.dayHeader).foregroundStyle(Theme.ink2)
                         }
                     }
                 }
+                .scrollContentBackground(.hidden)
                 .frame(minWidth: 300, idealWidth: 360)
 
                 Group {
@@ -58,14 +56,16 @@ struct HistoryView: View {
                             .id(selected.id)
                     } else {
                         Text(items.isEmpty ? "No dictations" : "Select a dictation")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.ink2)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
                 .frame(minWidth: 320, maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .padding(28)
+        .padding(.horizontal, 52)
+        .padding(.top, 26)
+        .padding(.bottom, 22)
         .onAppear {
             reload()
             if selection == nil { selection = items.first?.id }
@@ -156,15 +156,15 @@ private struct HistoryRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
-                Text(dictation.createdAt.formatted(date: .omitted, time: .shortened))
+                Text(dictation.createdAt.formatted(date: .omitted, time: .shortened)).font(Theme.Font.mono)
                 Text("·")
                 Text(dictation.appName ?? "Unknown app")
                 Spacer()
                 LanguageTag(label: dictation.languageLabel)
             }
-            .font(.system(size: 11))
-            .foregroundStyle(.secondary)
-            Text(dictation.displayText).font(.system(size: 13)).lineLimit(2)
+            .font(Theme.Font.caption)
+            .opacity(0.85)
+            Text(dictation.displayText).font(Theme.Font.callout).lineLimit(2)
         }
         .padding(.vertical, 4)
     }
@@ -179,6 +179,7 @@ private struct HistoryDetail: View {
     /// Offered after a fix, until answered.
     @State private var suggestion: Suggestion?
     @ObservedObject private var store = Store.shared
+    @Environment(\.palette) private var palette
     @FocusState private var draftFocused: Bool
     @StateObject private var playback = AudioPlayback()
 
@@ -199,23 +200,23 @@ private struct HistoryDetail: View {
                     Text(String(format: "%.1f s of speech", dictation.audioSeconds))
                     LanguageTag(label: dictation.languageLabel)
                 }
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .font(Theme.Font.footnote)
+                .foregroundStyle(Theme.ink2)
 
                 if fixing {
                     fixBox
                 } else if let fixed = dictation.fixedText {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("FIXED TEXT").font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
+                        sectionLabel("FIXED TEXT")
                         Text(fixed).font(.system(size: 16)).textSelection(.enabled)
                     }
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("PASTED TEXT").font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
-                        Text(dictation.finalText).font(.system(size: 12)).foregroundStyle(.secondary).textSelection(.enabled)
+                        sectionLabel("PASTED TEXT")
+                        Text(dictation.finalText).font(Theme.Font.footnote).foregroundStyle(Theme.ink2).textSelection(.enabled)
                     }
                 } else {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("PASTED TEXT").font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
+                        sectionLabel("PASTED TEXT")
                         Text(dictation.finalText).font(.system(size: 16)).textSelection(.enabled)
                     }
                 }
@@ -226,40 +227,45 @@ private struct HistoryDetail: View {
 
                 if dictation.rawText != dictation.finalText {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("WHAT WHISPER HEARD").font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
-                        Text(dictation.rawText).font(.system(size: 13)).textSelection(.enabled)
+                        sectionLabel("WHAT WHISPER HEARD")
+                        Text(dictation.rawText).font(Theme.Font.callout).textSelection(.enabled)
                         if let note = dictation.note {
-                            Text(note).font(.system(size: 12)).foregroundStyle(.secondary)
+                            Text(note).font(Theme.Font.footnote).foregroundStyle(Theme.ink2)
                         }
                     }
                     .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
+                    .background(RoundedRectangle(cornerRadius: Theme.Radius.card).fill(Theme.keyFace))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(Theme.keyEdge))
                 }
 
-                HStack {
+                HStack(spacing: 8) {
                     Button("Copy") { TextInserter.copy(dictation.displayText) }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.secondaryKey)
                     Button("Fix…") { startFixing() }
+                        .buttonStyle(.primaryKey)
                         .disabled(fixing)
                     Button("Add a word to Dictionary…") { addingTerm = true }
+                        .buttonStyle(.secondaryKey)
                     if let url = audioURL {
                         Button(playback.isPlaying ? "Stop" : "Play audio") { playback.toggle(url) }
+                            .buttonStyle(.secondaryKey)
                     }
                     Spacer()
                     Button("Delete", role: .destructive) { Store.shared.delete(dictation) }
+                        .buttonStyle(.destructiveKey)
                 }
                 if audioURL != nil {
                     confirmRow
                 }
                 Text(String(format: "Transcribed in %.2f s", dictation.latencySeconds))
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    .font(Theme.Font.mono)
+                    .foregroundStyle(Theme.ink2)
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor)))
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(Theme.keyEdge))
         .sheet(isPresented: $addingTerm) {
             AddTermSheet(term: $newTerm) { Store.shared.addTerm(newTerm); newTerm = "" }
         }
@@ -268,21 +274,22 @@ private struct HistoryDetail: View {
 
     private var fixBox: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("FIX THE TEXT").font(.system(size: 11, weight: .bold)).foregroundStyle(.secondary)
+            sectionLabel("FIX THE TEXT")
             TextEditor(text: $draft)
                 .font(.system(size: 15))
                 .frame(minHeight: 80, maxHeight: 200)
                 .scrollContentBackground(.hidden)
                 .padding(6)
-                .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .textBackgroundColor)))
-                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(nsColor: .separatorColor)))
+                .background(RoundedRectangle(cornerRadius: Theme.Radius.key).fill(Theme.keyFace))
+                .overlay(RoundedRectangle(cornerRadius: Theme.Radius.key).strokeBorder(palette.key, lineWidth: 1.5))
                 .focused($draftFocused)
             HStack {
                 Text("What was pasted stays as it was. Dami keeps this fix to learn from.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    .font(Theme.Font.caption)
+                    .foregroundStyle(Theme.ink2)
                 Spacer()
                 Button("Cancel") { fixing = false }
+                    .buttonStyle(.secondaryKey)
                     .keyboardShortcut(.cancelAction)
                 Button("Save") {
                     let before = dictation.displayText
@@ -292,7 +299,7 @@ private struct HistoryDetail: View {
                     fixing = false
                 }
                 .keyboardShortcut(.return, modifiers: .command)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.primaryKey)
                 .disabled(FixText.normalized(draft, replacing: dictation.displayText) == nil)
             }
         }
@@ -303,22 +310,28 @@ private struct HistoryDetail: View {
         HStack(spacing: 8) {
             if dictation.isConfirmed {
                 Label("Marked as what you said", systemImage: "checkmark.seal.fill")
-                    .foregroundStyle(.green)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(Theme.Font.footnote.weight(.semibold))
+                    .highlighted()
                 Text("Kept with its audio until you unmark or delete it.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    .font(Theme.Font.caption)
+                    .foregroundStyle(Theme.ink2)
                 Spacer()
                 Button("Unmark") { Store.shared.setConfirmed(dictation, false) }
+                    .buttonStyle(.secondaryKey)
             } else {
                 Button("This is what I said") { Store.shared.setConfirmed(dictation, true) }
+                    .buttonStyle(.secondaryKey)
                     .help("Marks this text as exactly what you said, and keeps the audio with it until you unmark it.")
                 Text("Fix the text first if it's wrong.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    .font(Theme.Font.caption)
+                    .foregroundStyle(Theme.ink2)
                 Spacer()
             }
         }
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text).font(Theme.Font.keyLabel).tracking(Theme.keyLabelTracking).foregroundStyle(Theme.ink2)
     }
 
     private func startFixing() {
@@ -373,10 +386,10 @@ struct AddTermSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Add to Dictionary").font(.headline)
+            Text("Add to Dictionary").font(Theme.Font.sectionTitle)
             Text("A name or term Dami should always spell this way.")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .font(Theme.Font.footnote)
+                .foregroundStyle(Theme.ink2)
             TextField("e.g. Supabase, Tailwind", text: $term)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(add)
@@ -384,8 +397,9 @@ struct AddTermSheet: View {
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }
+                    .buttonStyle(.secondaryKey)
                 Button("Add", action: add)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.primaryKey)
                     .disabled(term.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }

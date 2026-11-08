@@ -24,10 +24,11 @@ struct SettingsView: View {
                         } label: {
                             Text(item.rawValue)
                                 .fontWeight(tab == item ? .semibold : .regular)
+                                .foregroundStyle(tab == item ? Theme.onSelected : Theme.ink)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 10)
                                 .frame(height: 28)
-                                .background(RoundedRectangle(cornerRadius: 6).fill(tab == item ? Color.accentColor.opacity(0.15) : .clear))
+                                .background(RoundedRectangle(cornerRadius: Theme.Radius.key).fill(tab == item ? Theme.selected : .clear))
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -49,7 +50,9 @@ struct SettingsView: View {
                 .scrollContentBackground(.hidden)
             }
         }
-        .padding(28)
+        .padding(.horizontal, 52)
+        .padding(.top, 26)
+        .padding(.bottom, 22)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear(perform: showRequestedTab)
         .onChange(of: navigation.requestedSettingsTab) { showRequestedTab() }
@@ -68,13 +71,16 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 6) {
                 CleanupModePicker(label: "Cleanup")
                 Text(settings.cleanupMode.explanation)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .font(Theme.Font.footnote)
+                    .foregroundStyle(Theme.ink2)
             }
             Toggle("Play sounds when recording starts and stops", isOn: $settings.playSounds)
             Picker("Recording indicator position", selection: $settings.hudPosition) {
                 ForEach(AppSettings.HUDPosition.allCases) { Text($0.label).tag($0) }
             }
+        }
+        Section("Appearance") {
+            KeyColorPicker()
         }
     }
 
@@ -92,11 +98,11 @@ struct SettingsView: View {
             Text(settings.shortcutMode == .hold
                  ? "Record while held, paste when you let go."
                  : "Hold to talk as usual. Double-tap to keep recording without holding; tap once more to stop.")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .font(Theme.Font.footnote)
+                .foregroundStyle(Theme.ink2)
             Text("Press Esc while recording to cancel.")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .font(Theme.Font.footnote)
+                .foregroundStyle(Theme.ink2)
         }
     }
 
@@ -114,16 +120,16 @@ struct SettingsView: View {
                 .pickerStyle(.radioGroup)
                 .labelsHidden()
                 Text("Automatic detects each dictation, and mixed sentences work.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .font(Theme.Font.footnote)
+                    .foregroundStyle(Theme.ink2)
             }
             Section {
                 Toggle(isOn: $settings.keepEnglishTerms) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Keep English words in English")
                         Text("Words like \"meeting\" or \"API\" stay in English inside \(second.name) sentences.")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
+                            .font(Theme.Font.footnote)
+                            .foregroundStyle(Theme.ink2)
                     }
                 }
             }
@@ -133,11 +139,11 @@ struct SettingsView: View {
     @ViewBuilder private var sync: some View {
         Section {
             LabeledContent("Sync across your Macs") {
-                Text("Coming later").foregroundStyle(.orange)
+                Text("Coming later").foregroundStyle(Theme.ink2)
             }
             Text("Share your Dictionary, Replacements and Settings with Dami on your other Macs. History and audio stay on each Mac.")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .font(Theme.Font.footnote)
+                .foregroundStyle(Theme.ink2)
         }
     }
 }
@@ -162,7 +168,7 @@ private struct ShortcutRecorder: View {
                 Group {
                     if recording {
                         Text(held.isEmpty ? "Press the keys…" : Shortcut(modifiers: held, keyCode: nil).displayName)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.ink2)
                     } else {
                         KeycapRow(keys: settings.shortcut.keycaps)
                     }
@@ -182,7 +188,7 @@ private struct ShortcutRecorder: View {
                 }
             }
             Text(message ?? "Press any key combination, or hold modifier keys and let go. Left and right modifier keys are told apart.")
-                .font(.system(size: 12))
+                .font(Theme.Font.footnote)
                 .foregroundStyle(message == nil ? Color.secondary : Color.orange)
         }
         .onDisappear { stop() }
@@ -256,7 +262,7 @@ private struct ModelsSection: View {
             }
             if case .failed(let problem) = controller.modelStatus {
                 HStack {
-                    Text(problem.message).foregroundStyle(.orange)
+                    Text(problem.message).foregroundStyle(Theme.danger)
                     Spacer()
                     Button(problem.actionTitle) { controller.retryModel() }
                 }
@@ -268,11 +274,11 @@ private struct ModelsSection: View {
         }
         Section("Cleanup model") {
             LabeledContent("Rewrites sentences") {
-                Text("Not installed").foregroundStyle(.secondary)
+                Text("Not installed").foregroundStyle(Theme.ink2)
             }
             Text("Comes with Smart mode in a later update. It will load only while you dictate. Light mode doesn't need it.")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .font(Theme.Font.footnote)
+                .foregroundStyle(Theme.ink2)
         }
     }
 
@@ -333,10 +339,10 @@ private struct PrivacySection: View {
     var body: some View {
         Section {
             Label("Everything runs on this Mac. Your voice and text are never uploaded.", systemImage: "lock.fill")
-                .foregroundStyle(.blue)
+                .foregroundStyle(Theme.ink)
             Text("Text history is stored unencrypted on this Mac until you delete it. Audio is only saved if you turn that on below.")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .font(Theme.Font.footnote)
+                .foregroundStyle(Theme.ink2)
         }
         Section {
             Picker("Keep history for", selection: $settings.retentionDays) {
@@ -347,8 +353,8 @@ private struct PrivacySection: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Save audio recordings")
                     Text("Off by default. Lets Dami learn your voice later. About 2 MB per minute.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
+                        .font(Theme.Font.footnote)
+                        .foregroundStyle(Theme.ink2)
                 }
             }
             .disabled(settings.retentionDays < 0)
@@ -362,8 +368,8 @@ private struct PrivacySection: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Learn from fixes you make after pasting")
                     Text("For up to 2 minutes after a paste, Dami notices if you fix that text where you pasted it, and saves the fix in History. Only the pasted text is kept, never what's around it.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
+                        .font(Theme.Font.footnote)
+                        .foregroundStyle(Theme.ink2)
                 }
             }
             .disabled(settings.retentionDays < 0)
@@ -382,5 +388,62 @@ private struct PrivacySection: View {
         }
         .onAppear { audioBytes = Store.shared.audioBytesUsed() }
         .onChange(of: settings.saveAudio) { audioBytes = Store.shared.audioBytesUsed() }
+    }
+}
+
+/// Settings › General › Appearance › Key color (spec D1): eight swatches, a radio group for VoiceOver.
+private struct KeyColorPicker: View {
+    @ObservedObject private var settings = AppSettings.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            LabeledContent("Key color") {
+                Text(settings.keyColor.name).foregroundStyle(Theme.ink2)
+            }
+            HStack(spacing: 14) {
+                ForEach(KeyColor.allCases) { option in
+                    swatch(option)
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Key color")
+            Text("Used for the main action, the Ready dot and highlights. Light and dark follow your Mac.")
+                .font(Theme.Font.footnote)
+                .foregroundStyle(Theme.ink2)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func swatch(_ option: KeyColor) -> some View {
+        let isOn = settings.keyColor == option
+        let palette = option.palette
+        return Button { settings.keyColor = option } label: {
+            VStack(spacing: 5) {
+                ZStack {
+                    Circle().fill(palette.highlight)
+                    Circle().fill(palette.key).mask(
+                        GeometryReader { proxy in
+                            Path { path in
+                                let size = proxy.size
+                                path.move(to: .zero)
+                                path.addLine(to: CGPoint(x: size.width, y: 0))
+                                path.addLine(to: CGPoint(x: 0, y: size.height))
+                                path.closeSubpath()
+                            }
+                        }
+                    )
+                }
+                .frame(width: 26, height: 26)
+                .padding(3)
+                .overlay(Circle().strokeBorder(isOn ? Theme.ink : .clear, lineWidth: 2))
+                Text(option.name)
+                    .font(.system(size: 10.5, weight: isOn ? .bold : .regular))
+                    .foregroundStyle(Theme.ink)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(option.name)
+        .accessibilityAddTraits(isOn ? [.isSelected] : [])
     }
 }

@@ -217,36 +217,11 @@ struct MenuContent: View {
                 Text("On-device · nothing leaves this Mac").font(Theme.Font.caption).foregroundStyle(Theme.ink2)
             }
             Spacer()
-            HStack(spacing: 4) {
-                StatusDot(kind: statusKind)
-                Text(shortStatus)
-                    .font(Theme.Font.keyLabelSmall)
-                    .tracking(0.6)
-                    .textCase(.uppercase)
-            }
+            StatusBadge(controller: controller)
         }
         .padding(.horizontal, 10)
         .padding(.top, 6)
         .help(controller.statusText)
-    }
-
-    private var shortStatus: String {
-        switch controller.state {
-        case .loadingModel: "Loading"
-        case .idle: settings.paused ? "Paused" : (controller.hotkeyActive ? "Ready" : "Setup needed")
-        case .recording: "Listening"
-        case .transcribing: "Working"
-        case .failed: "Error"
-        }
-    }
-
-    private var statusKind: StatusDot.Kind {
-        switch controller.state {
-        case .idle where !settings.paused && controller.hotkeyActive: .ready
-        case .recording: .listening
-        case .failed: .error
-        default: .idle
-        }
     }
 
     private func row(_ title: String, shortcut: String) -> some View {

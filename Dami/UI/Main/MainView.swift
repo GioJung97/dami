@@ -1,41 +1,57 @@
 import SwiftUI
 
-/// The main window: sidebar with Home, History, Dictionary and Settings.
+/// The main window: a top bar of section keys (Home, History, Dictionary, Settings) and the section below (spec §7, D2).
 struct MainView: View {
     @ObservedObject var controller: DictationController
     @EnvironmentObject private var navigation: Navigation
+    @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
-        NavigationSplitView {
-            List(Navigation.Section.allCases, selection: $navigation.section) { section in
-                Label(section.title, systemImage: section.symbol).tag(section)
+        let palette = settings.keyColor.palette
+        VStack(spacing: 0) {
+            TopBar(controller: controller)
+            Rule()
+            Group {
+                switch navigation.section {
+                case .home: HomeView(controller: controller)
+                case .history: HistoryView()
+                case .dictionary: DictionaryView()
+                case .settings: SettingsView(controller: controller)
+                }
             }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 240)
-            .safeAreaInset(edge: .bottom) { SidebarStatus(controller: controller) }
-        } detail: {
-            switch navigation.section {
-            case .home: HomeView(controller: controller)
-            case .history: HistoryView()
-            case .dictionary: DictionaryView()
-            case .settings: SettingsView(controller: controller)
-            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .foregroundStyle(Theme.ink)
+        .background(palette.paper)
+        .environment(\.palette, palette)
+        .tint(palette.key)
         .frame(minWidth: 860, minHeight: 560)
     }
 }
 
-private struct SidebarStatus: View {
+/// Traffic lights sit at the left of this bar (the window's title bar is hidden).
+private struct TopBar: View {
     @ObservedObject var controller: DictationController
-    @ObservedObject private var settings = AppSettings.shared
+    @EnvironmentObject private var navigation: Navigation
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Divider()
-            Text(controller.statusText).font(.system(size: 12, weight: .semibold)).lineLimit(2)
-            Text("On-device · nothing leaves this Mac").font(.system(size: 11)).foregroundStyle(.secondary)
-            KeycapRow(keys: settings.shortcut.keycaps, size: 11)
+        HStack(spacing: 22) {
+            Text("Dami").font(Theme.Font.wordmark)
+            HStack(spacing: 8) {
+                ForEach(Navigation.Section.allCases) { section in
+                    Button(section.title) { navigation.section = section }
+                        .buttonStyle(TabKeyStyle(isOn: navigation.section == section, height: 26))
+                        .accessibilityAddTraits(navigation.section == section ? .isSelected : [])
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Sections")
+            Spacer()
+            StatusBadge(controller: controller)
         }
-        .padding(12)
+        .padding(.leading, 84)
+        .padding(.trailing, 22)
+        .frame(height: 52)
     }
 }
 
@@ -47,13 +63,8 @@ struct KeycapRow: View {
     var body: some View {
         HStack(spacing: 4) {
             ForEach(Array(keys.enumerated()), id: \.offset) { index, key in
-                if index > 0 { Text("+").font(.system(size: size)).foregroundStyle(.secondary) }
-                Text(key)
-                    .font(.system(size: size))
-                    .padding(.horizontal, size * 0.55)
-                    .padding(.vertical, size * 0.25)
-                    .background(RoundedRectangle(cornerRadius: 5).fill(Color(nsColor: .controlBackgroundColor)))
-                    .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Color(nsColor: .separatorColor)))
+                if index > 0 { Text("+").font(.system(size: size)).foregroundStyle(Theme.ink2) }
+                Keycap(label: key, size: size)
             }
         }
     }
@@ -66,9 +77,9 @@ struct PageHeader: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.system(size: 26, weight: .bold))
+            Text(title).font(Theme.Font.pageTitle).tracking(-0.5)
             if let subtitle {
-                Text(subtitle).font(.system(size: 14)).foregroundStyle(.secondary)
+                Text(subtitle).font(Theme.Font.body).foregroundStyle(Theme.ink2)
             }
         }
     }
@@ -82,29 +93,22 @@ struct Card<Content: View>: View {
         VStack(alignment: .leading, spacing: 10) { content }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color(nsColor: .textBackgroundColor)))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color(nsColor: .separatorColor)))
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.card).fill(Theme.keyFace))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).strokeBorder(Theme.keyEdge))
     }
 }
 
-/// Small colored language label: EN (blue), the other language e.g. KO (orange), MIXED (gray).
+/// Small language label: EN, the other language's code, or MIXED. The word carries the meaning, so it's ink, not colour.
 struct LanguageTag: View {
     let label: String
 
     var body: some View {
         Text(label)
-            .font(.system(size: 10, weight: .bold))
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .foregroundStyle(color)
-            .background(RoundedRectangle(cornerRadius: 4).fill(color.opacity(0.14)))
-    }
-
-    private var color: Color {
-        switch label {
-        case "EN": .blue
-        case "MIXED": .secondary
-        default: .orange
-        }
+            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+            .tracking(0.5)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .foregroundStyle(Theme.ink2)
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.keycap).strokeBorder(Theme.keyEdge))
     }
 }

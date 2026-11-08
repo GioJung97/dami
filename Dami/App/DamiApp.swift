@@ -19,6 +19,7 @@ struct DamiApp: App {
                 .showsDockIconWhileOpen()
         }
         .defaultSize(width: 1000, height: 680)
+        .windowStyle(.hiddenTitleBar)
 
         Window("Welcome to Dami", id: WindowID.onboarding) {
             OnboardingView(controller: controller)
