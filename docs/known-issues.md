@@ -133,3 +133,20 @@ language on the bench clips.
 Found in v0.4 M1. Both English dictations among 11 samples came back empty with the vocabulary prompt and were recovered by the
 retry without it, about 0.45 s later. Nothing was lost. Two samples can't say how often this happens or why. Watch it in the latency
 samples (`runs=2` with `lang=en`) before doing anything.
+
+## HUD not visible while recording, after a fresh install (2026-11-07)
+
+**What happened:** on the first run of Dami (fresh settings and permissions after the rename), the shortcut and dictation worked
+and text was pasted, but the HUD never showed while the keys were held. A window log (owner and window bounds only, no content)
+found no HUD window on screen during the recording. After the paste it was on screen for about 0.5 s, with its x position
+outside the display and the menu bar item at several x positions at once, as during a screen-wide slide.
+
+**What fixed it:** the owner turned Dami off and on in Accessibility, then quit and reopened Dami. Both were done together, so it
+isn't known which one fixed it. That app session had run since the first launch, through setup.
+
+**Not known:** the cause, whether it happens on every fresh install, and whether it is tied to setup, Spaces or cmux. It matters
+for v1.0 because a new user who sees no HUD can't tell recording has started. **Check on the next fresh install** (a tester's Mac
+or a new user account): does the HUD show during the first recording right after setup, before any reopen?
+
+**Unrelated, seen at the same time:** the menu bar item sometimes disappears when an app with many menus (cmux, Cursor) is in
+front. That's macOS hiding status items behind the notch. Dami's item sits just right of it.
