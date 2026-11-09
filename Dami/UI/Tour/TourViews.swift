@@ -59,10 +59,20 @@ struct TourLiveView: View {
         .environment(\.palette, settings.keyColor.palette)
         .environment(\.appTheme, settings.theme)
         .tint(settings.keyColor.palette.key)
-        .onAppear { boxFocused = true }
+        .onAppear {
+            boxFocused = true
+            centerWindow()
+        }
         .onChange(of: tour.step) { _, newStep in
             if newStep == nil || newStep?.isInWindow == true { dismissWindow(id: WindowID.liveTour) }
             if newStep == .hold { boxFocused = true }
+        }
+    }
+
+    /// Opens in the middle of the screen each time, not wherever it was last left.
+    private func centerWindow() {
+        DispatchQueue.main.async {
+            NSApp.windows.first { $0.identifier?.rawValue.hasPrefix(WindowID.liveTour) == true }?.center()
         }
     }
 

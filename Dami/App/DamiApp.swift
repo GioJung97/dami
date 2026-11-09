@@ -30,7 +30,7 @@ struct DamiApp: App {
         }
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
-        .defaultPosition(.top)
+        .defaultPosition(.center)
 
         Window("Welcome to Dami", id: WindowID.onboarding) {
             OnboardingView(controller: controller)
