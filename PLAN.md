@@ -303,7 +303,7 @@ Before relying on it for later decisions (speech model choice, accuracy changes)
 ## 6. Project layout
 
 ```
-localflow/
+dami/
 ├── PLAN.md, README.md, LICENSE, CLAUDE.md
 ├── project.yml             source of the generated Dami.xcodeproj (git-ignored)
 ├── Dami/
