@@ -144,6 +144,11 @@ about 0.44 s on every Auto dictation, a quarter to a third of the 1.6 s from rel
 before v1.0** (owner, 2026-11-06): reuse the encoder output for transcription. Check afterwards that detection picks the same
 language on the bench clips.
 
+
+**Fixed in v1.0 M2 (2026-11-08).** `ReusingAudioEncoder` wraps WhisperKit's encoder and returns the last output when the mel features
+are byte for byte the same, so the first window and a run without the prompt reuse detection's encoding. Detection itself is
+unchanged. First samples: transcription about 0.52 s against about 0.8 s before, total 1.25 s against 1.5 s; the latency log shows
+`reused=1`.
 ## English dictations sometimes come back empty on the first run (2026-11-06)
 
 Found in v0.4 M1. Both English dictations among 11 samples came back empty with the vocabulary prompt and were recovered by the

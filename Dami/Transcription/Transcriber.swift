@@ -58,6 +58,8 @@ actor Transcriber {
         var transcribe: Double = 0
         /// Whisper runs, including retries.
         var runs = 0
+        /// Windows whose encoder output was reused instead of encoded again (v1.0 M2).
+        var reused = 0
     }
 
     private var whisper: WhisperKit?
@@ -127,6 +129,7 @@ actor Transcriber {
         do {
             let whisper = try await WhisperKit(config)
             _ = try? await whisper.transcribe(audioArray: [Float](repeating: 0, count: 16_000))
+            whisper.audioEncoder = ReusingAudioEncoder(base: whisper.audioEncoder)
             self.whisper = whisper
         } catch {
             log.error("Model load failed: \(error.localizedDescription, privacy: .public)")
@@ -165,6 +168,9 @@ actor Transcriber {
 
     func transcribe(_ audio: [Float], options: Options) async throws -> Result {
         guard let whisper else { throw TranscriberError.notLoaded }
+        let encoder = whisper.audioEncoder as? ReusingAudioEncoder
+        encoder?.clear()
+        defer { encoder?.clear() }
 
         // Nil leaves it to Whisper's own detection, without a prompt.
         var timings = Timings()
@@ -208,6 +214,7 @@ actor Transcriber {
             retry.words = retry.words.map { Word(word: $0.word, start: max(0, $0.start - offset), end: max(0, $0.end - offset), probability: $0.probability) }
             timings.runs = 1
             timings.transcribe = Date().timeIntervalSince(transcribeStarted)
+            timings.reused = encoder?.reused ?? 0
             return Result(text: retry.text, language: language ?? retry.language ?? "en", prompt: nil, promptVocabulary: [], words: retry.words, timings: timings)
         }
 
@@ -230,6 +237,7 @@ actor Transcriber {
             timings.runs += 1
         }
         timings.transcribe = Date().timeIntervalSince(transcribeStarted)
+        timings.reused = encoder?.reused ?? 0
         return Result(
             text: run.text,
             language: language ?? run.language ?? "en",
@@ -354,4 +362,42 @@ enum ModelProblem: Error, Equatable, Sendable {
     /// The files are there but bad, so trying again means replacing them.
     var needsRedownload: Bool { self == .loadFailed }
     var actionTitle: String { needsRedownload ? "Re-download" : "Retry" }
+}
+
+/// Remembers the encoder's output for the last window it encoded, so the same audio isn't encoded twice: once to tell the two
+/// languages apart and again by WhisperKit for the first window, or again for a run without the prompt (v1.0 M2, about 0.4 s
+/// each). A window counts as the same only if its mel features are equal byte for byte. Cleared around every dictation.
+final class ReusingAudioEncoder: AudioEncoding {
+    private let base: any AudioEncoding
+    private var lastFeatures: Data?
+    private var lastOutput: (any AudioEncoderOutputType)?
+    private(set) var reused = 0
+
+    init(base: any AudioEncoding) {
+        self.base = base
+    }
+
+    var embedSize: Int? { base.embedSize }
+
+    func encodeFeatures(_ features: any FeatureExtractorOutputType) async throws -> (any AudioEncoderOutputType)? {
+        let key = (features as? MLMultiArray).map(Self.bytes)
+        if let key, key == lastFeatures, let lastOutput {
+            reused += 1
+            return lastOutput
+        }
+        let output = try await base.encodeFeatures(features)
+        lastFeatures = key
+        lastOutput = output
+        return output
+    }
+
+    func clear() {
+        lastFeatures = nil
+        lastOutput = nil
+        reused = 0
+    }
+
+    private static func bytes(_ array: MLMultiArray) -> Data {
+        array.withUnsafeBytes { Data($0) }
+    }
 }
