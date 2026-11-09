@@ -31,7 +31,7 @@ There's no public download yet. If you were given a `Dami-<version>.dmg`:
 1. Open it and drag **Dami** onto **Applications**.
 2. Open Dami from Applications. Dami isn't notarized by Apple, so macOS blocks it the first time with a message that it can't
    check the app. Choose **Done**, not Move to Trash.
-3. Open **System Settings › Privacy & Security**, scroll down to **Security**, and choose **Open Anyway** next to the line about
+3. Open **System Settings › Privacy & Security** (or double-click **Privacy & Security** in the .dmg window), scroll down to **Security**, and choose **Open Anyway** next to the line about
    Dami. Confirm with your password or Touch ID, then **Open**. macOS only asks this once.
 4. Setup walks you through the permissions and the model download.
 
