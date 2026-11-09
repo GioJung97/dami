@@ -145,6 +145,7 @@ words like German "er" and Portuguese "um" are real words there.
   edit that crosses the edge of the pasted text isn't saved.
 - Some screens show features that aren't built yet, marked as coming later.
 - So far it has been used by its author only, on two Macs. Nobody else has tried it yet.
+- Not checked with VoiceOver or Increase Contrast.
 - No automatic updates, since that would use the network. Download a new version and replace the app (see Install).
 
 ## License
