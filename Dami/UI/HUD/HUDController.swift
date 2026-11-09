@@ -92,6 +92,14 @@ final class HUDController: ObservableObject {
         }
     }
 
+    /// Takes a note away early, when what it said is over.
+    func hideNote(_ text: String) {
+        guard note == text else { return }
+        noteTask?.cancel()
+        withAnimation(.easeOut(duration: 0.18)) { note = nil }
+        scheduleOrderOut()
+    }
+
     func push(level: Float) {
         guard isRecording(phase) else { return }
         levels.removeFirst()

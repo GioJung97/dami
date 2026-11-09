@@ -44,7 +44,7 @@ No LLM in v1.0 (owner, 2026-11-06): Smart mode may be tried again after it, once
 |---|---|
 | Evaluation | Eval tool on the app's pipeline, a larger clip set (`docs/plans/v0.3.md` §7, §5 below) |
 | Accuracy | Very short dictations (`docs/plans/v0.3.md` §7), mixed-language prompt and decoder changes, Korean terms in the prompt, a small spacing corrector, Whisper fine-tuning |
-| Recording | Hands-free stops itself after a long silence (owner's idea, low priority), streaming while speaking, Bluetooth microphone reliability, microphone ranking |
+| Recording | Hands-free stops itself after a long silence (owner's idea, low priority), streaming while speaking, microphone ranking, lowering other audio while dictating like Siri (owner's idea, 2026-11-08; would also keep speaker music out of the built-in mic), keeping a Bluetooth mic open a few seconds after a dictation so the next starts at once |
 | Models | A lighter and a heavier speech model in Settings, choosing models by hardware |
 | Learning | Showing what was learned, highlights on low-probability words, re-dictation detection, merged Dictionary |
 | Pasting | Protection when focus changes during processing, checks in apps not yet tried (Safari, Electron, Word) |

@@ -15,6 +15,10 @@ final class AudioRecorder {
     /// Attempts to resume after the engine stopped on a configuration change. Beyond this, the device
     /// counts as lost.
     private static let maxRestarts = 3
+    /// How long a started engine may go without delivering audio before it's started again.
+    private static let firstAudioWait: TimeInterval = 0.3
+    /// How long starting may take in all. AirPods took 1.0–2.3 s to switch to their microphone (2026-11-08).
+    private static let startBudget: TimeInterval = 4
 
     struct Started {
         let device: InputDevice
@@ -48,7 +52,8 @@ final class AudioRecorder {
                 guard let device = chosen ?? CoreAudioDevices.defaultInput() else { throw RecorderError.noMicrophone }
                 session.device = device
                 let began = Date()
-                try beginCapture(session)
+                let attempts = try beginCaptureUntilAudio(session)
+                if attempts > 1 { log.notice("Mic needed \(attempts, privacy: .public) starts before audio arrived") }
                 log.notice("Mic started in \(Int(Date().timeIntervalSince(began) * 1000), privacy: .public) ms, wireless: \(device.isBluetooth || device.isContinuity, privacy: .public)")
                 let started = Started(device: device, chosenMissing: deviceUID != nil && chosen == nil)
                 DispatchQueue.main.async { completion(.success(started)) }
@@ -88,6 +93,32 @@ final class AudioRecorder {
 
     // MARK: Capture (on the queue)
 
+    /// A Bluetooth headset switches from its music mode to its call mode when its microphone opens, which takes about a second.
+    /// Until then the engine reads the old format: starting fails (-10868) or succeeds with no audio at all, which would end as
+    /// "nothing heard" (AirPods, 2026-11-08). So start on a new engine until audio arrives. Returns the number of starts.
+    private func beginCaptureUntilAudio(_ session: Session) throws -> Int {
+        let deadline = Date().addingTimeInterval(Self.startBudget)
+        var attempts = 0
+        var lastError: Error = RecorderError.noAudio
+        while Date() < deadline {
+            attempts += 1
+            do {
+                try beginCapture(session)
+                let wait = min(deadline, Date().addingTimeInterval(Self.firstAudioWait))
+                while Date() < wait, !session.hasAudio { Thread.sleep(forTimeInterval: 0.01) }
+                if session.hasAudio { return attempts }
+                endCapture(session)
+                lastError = RecorderError.noAudio
+            } catch {
+                lastError = error
+            }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        // The last error from Core Audio reads "The operation couldn't be completed", so it's logged and a plain one is shown.
+        log.error("Mic gave no audio after \(attempts, privacy: .public) starts: \(lastError.localizedDescription, privacy: .public)")
+        throw RecorderError.noAudio
+    }
+
     private func beginCapture(_ session: Session) throws {
         guard let device = session.device else { throw RecorderError.noMicrophone }
         let engine = AVAudioEngine()
@@ -98,6 +129,15 @@ final class AudioRecorder {
             unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
             &deviceID, UInt32(MemoryLayout<AudioDeviceID>.size)
         )
+        // The node keeps the format of the device it started on, the system default. With another device chosen at another rate
+        // (the built-in mic at 48 kHz while AirPods, 24 kHz, are the default), starting fails with -10868 (2026-11-08). So give
+        // the node the chosen device's own format.
+        var hardware = input.inputFormat(forBus: 0).streamDescription.pointee
+        let matched = AudioUnitSetProperty(
+            unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1,
+            &hardware, UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+        )
+        if matched != noErr { log.error("Couldn't match the mic's format: \(matched, privacy: .public)") }
         let format = input.outputFormat(forBus: 0)
         guard selected == noErr, format.sampleRate > 0, format.channelCount > 0 else { throw RecorderError.noMicrophone }
 
@@ -186,6 +226,10 @@ final class AudioRecorder {
 
         private let lock = NSLock()
         private var captured: [Float] = []
+        private var buffersReceived = 0
+
+        /// Any buffer arrived, from any engine of this session.
+        var hasAudio: Bool { lock.withLock { buffersReceived > 0 } }
         /// Only touched on the audio thread. Recreated if the buffer format changes.
         private var converter: AVAudioConverter?
         private let targetFormat = AVAudioFormat(
@@ -202,6 +246,7 @@ final class AudioRecorder {
 
         func append(_ buffer: AVAudioPCMBuffer) {
             guard let targetFormat else { return }
+            if buffer.frameLength > 0 { lock.withLock { buffersReceived += 1 } }
             if converter?.inputFormat != buffer.format {
                 converter = AVAudioConverter(from: buffer.format, to: targetFormat)
             }
@@ -267,12 +312,13 @@ final class AudioRecorder {
     }
 
     enum RecorderError: LocalizedError {
-        case unsupportedFormat, noMicrophone, permissionMissing
+        case unsupportedFormat, noMicrophone, permissionMissing, noAudio
         var errorDescription: String? {
             switch self {
             case .unsupportedFormat: "The microphone's audio format isn't supported."
             case .noMicrophone: "No microphone found"
             case .permissionMissing: "Microphone permission needed"
+            case .noAudio: "The microphone didn't start. Try again, or choose another microphone."
             }
         }
     }

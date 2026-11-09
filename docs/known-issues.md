@@ -36,6 +36,18 @@ also match non-fields on other sites.
 AirPods connected, but of 8 wireless starts only about 3 produced a saved dictation in M2 testing. Cause not investigated. It's
 on the later list in `docs/plans/v0.2.md`.
 
+**Cause found (2026-11-08, v1.0 M1).** AirPods sit in their music mode and switch to their call mode (24 kHz) when the
+microphone opens, which took 1.0–2.3 s here. Until then the engine reads the old 48 kHz format, so starting either fails with
+`-10868` (format not supported) or succeeds with no audio at all, which ended as "nothing heard": speech lost without an error.
+Separately, choosing the built-in mic while AirPods were the default failed the same way, since the engine kept the default
+device's format.
+
+**Fixed:** the recorder gives the engine the chosen mic's own format, and starts again on a new engine until audio arrives (up to
+4 s), then fails with a plain message. The start sound plays only once audio arrives, 0.3 s later on Bluetooth so the headset's
+switch doesn't swallow it, and "Starting microphone…" shows if that takes over 0.5 s. Music in the AirPods still drops to call
+quality while dictating, as with any app using their mic; choosing the built-in mic avoids that. Not verified: other Bluetooth
+headsets, and the iPhone as a microphone.
+
 ## Spacing in fields Accessibility can't read
 
 In terminals such as cmux, spacing is a guess from the previous dictation: same app, within 2 minutes, no key pressed since. A

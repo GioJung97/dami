@@ -94,6 +94,12 @@ final class DictationController: ObservableObject {
     private var limitTask: Task<Void, Never>?
     /// Tells a late result from `recorder.start` which recording it belongs to.
     private var recordingNumber = 0
+    /// Audio is arriving for the current recording.
+    private var micReady = false
+    private static let startingMicNote = "Starting microphone…"
+    /// The built-in mic took up to about 0.33 s with AirPods connected, so a shorter wait would flash the note.
+    private static let startingMicNoteAfter: Duration = .milliseconds(500)
+    private static let bluetoothSoundDelay: Duration = .milliseconds(300)
 
     var statusText: String {
         switch state {
@@ -327,6 +333,13 @@ final class DictationController: ObservableObject {
         recordingNumber += 1
         let number = recordingNumber
         let chosen = settings.inputDeviceUID
+        // A Bluetooth headset takes about a second to open its microphone. Say so, so speech doesn't start before it can be heard.
+        Task { [weak self] in
+            try? await Task.sleep(for: Self.startingMicNoteAfter)
+            guard let self, number == self.recordingNumber, self.isRecording, !self.micReady else { return }
+            self.hud.show(note: Self.startingMicNote)
+        }
+        micReady = false
         recorder.start(deviceUID: chosen) { [weak self] result in
             MainActor.assumeIsolated { self?.recordingStarted(result, number: number, chosen: chosen) }
         }
@@ -336,8 +349,21 @@ final class DictationController: ObservableObject {
         guard number == recordingNumber, isRecording else { return }
         switch result {
         case .success(let started):
-            // The sound means "go ahead", so it waits until the microphone is really on.
-            if settings.playSounds { NSSound(named: "Tink")?.play() }
+            micReady = true
+            hud.hideNote(Self.startingMicNote)
+            // The sound means "go ahead", so it waits until audio is really arriving. A Bluetooth headset is still settling into its
+            // call mode then and dropped the sound (AirPods, 2026-11-08), so it plays a moment later there.
+            if settings.playSounds {
+                if started.device.isBluetooth {
+                    Task { [weak self] in
+                        try? await Task.sleep(for: Self.bluetoothSoundDelay)
+                        guard let self, number == self.recordingNumber, self.isRecording else { return }
+                        NSSound(named: "Tink")?.play()
+                    }
+                } else {
+                    NSSound(named: "Tink")?.play()
+                }
+            }
             microphoneName = started.device.name
             microphoneTransport = started.device.transportName
             if let note = InputDevices.shared.note(for: started, chosen: chosen) { hud.show(note: note) }
@@ -510,6 +536,7 @@ final class DictationController: ObservableObject {
     private var isWorking: Bool { processor.isBusy || !stoppingRecordings.isEmpty }
 
     private func setRecording(_ recording: Bool) {
+        if !recording { hud.hideNote(Self.startingMicNote) }
         isRecording = recording
         processor.isRecording = recording
         refreshState()
