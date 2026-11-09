@@ -113,6 +113,12 @@ on `hasCompletedOnboarding`, so History stays reachable if a permission is remov
 was in front before, and the owner had to switch back to Dami. The setup window stays open behind. Likely fix: bring the setup
 window forward once the microphone request returns. Accessibility needed no reopen, as expected.
 
+**Found 2026-11-08 (owner, first install from the .dmg):** Dami wasn't in System Settings' Accessibility list after Allow, and the
+owner added it by hand. Not reproduced the same day: with Accessibility reset (`tccutil reset`) and setup run again on the
+`build.sh` install, Allow added Dami to the list and only the toggle was needed. A guess, not checked: the first open from the .dmg
+ran from a moved copy (App Translocation, which macOS uses for quarantined apps), so the list entry belonged to another path. Retest on
+the next first install from a .dmg: open Dami from Applications after dragging, never from the .dmg window.
+
 **Not verified**
 - The Input Monitoring row and its advice, which can't be reproduced on this Mac.
 - The in-app "Quit & Reopen" button. It wasn't recorded as pressed.
