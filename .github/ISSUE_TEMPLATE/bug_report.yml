@@ -1,0 +1,68 @@
+name: Something went wrong
+description: Text didn't appear, appeared in the wrong place, was wrong, or something was slow or confusing.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying Dami. Please don't paste anything you dictated that you'd rather keep private.
+        This issue is public.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: how-often
+    attributes:
+      label: How often
+      options:
+        - Once
+        - Sometimes
+        - Every time
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      description: Apple menu › About This Mac.
+      placeholder: "15.3"
+    validations:
+      required: true
+  - type: input
+    id: dami
+    attributes:
+      label: Dami version
+      description: The .dmg's name, or Dami in Applications › Get Info.
+      placeholder: "1.0.0"
+  - type: input
+    id: app
+    attributes:
+      label: App you were dictating into
+      placeholder: Notes, Slack, Chrome, Terminal…
+  - type: dropdown
+    id: mic
+    attributes:
+      label: Microphone
+      options:
+        - Mac's built-in mic
+        - AirPods or another Bluetooth headset
+        - Wired or USB mic
+        - Not sure
+  - type: input
+    id: languages
+    attributes:
+      label: Languages
+      description: The languages chosen in Dami, and the one you were speaking.
+      placeholder: English + Korean, speaking mixed
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics (optional)
+      description: |
+        Settings › Privacy › Diagnostics › Export diagnostics… shows the whole file before you save it. It holds numbers,
+        versions and setting names only, never what you dictated. Paste it here or attach the .txt.
+      render: text

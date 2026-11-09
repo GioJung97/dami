@@ -1,0 +1,50 @@
+name: How Dami does in my language
+description: For speakers of a language other than English and Korean, which haven't been tested with real voices yet.
+labels: [language]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Japanese, Chinese, Spanish, French, German, Portuguese, Vietnamese and Hindi are experimental. Hearing how they do,
+        alone and mixed with English, helps most. This issue is public, so only share sentences you're fine with posting.
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      placeholder: Japanese
+    validations:
+      required: true
+  - type: dropdown
+    id: overall
+    attributes:
+      label: Overall
+      options:
+        - Works well
+        - Usable, with mistakes
+        - Often wrong
+        - Doesn't work
+    validations:
+      required: true
+  - type: checkboxes
+    id: tried
+    attributes:
+      label: What you tried
+      options:
+        - label: Only my language
+        - label: My language mixed with English in one sentence
+        - label: Switching between my language and English between dictations
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples (optional)
+      description: What you said and what Dami wrote. Only sentences you're fine with posting.
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Wrong language picked, English words changed, punctuation, speed…
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "15.3"

@@ -1,0 +1,11 @@
+name: Idea or request
+description: Something you'd like Dami to do, or to do differently. Windows and Linux requests are welcome too.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: What you'd like, and what you'd use it for.
+    validations:
+      required: true
