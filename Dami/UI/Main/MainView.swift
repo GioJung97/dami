@@ -43,19 +43,21 @@ private struct TopBar: View {
     @Environment(\.palette) private var palette
 
     var body: some View {
-        HStack(spacing: 22) {
-            Text("Dami").font(Theme.Font.wordmark)
-            HStack(spacing: 8) {
+        HStack(spacing: 28) {
+            HStack(spacing: 7) {
+                DamiMarkGlyph(height: 28)
+                Text("Dami").font(Theme.Font.wordmark)
+            }
+            HStack(spacing: 10) {
                 ForEach(Navigation.Section.allCases) { section in
                     Button(section.title) { navigation.section = section }
-                        .buttonStyle(TabKeyStyle(isOn: navigation.section == section, height: 26))
+                        .buttonStyle(TabKeyStyle(isOn: navigation.section == section, width: 96, height: 32, font: Theme.Font.sectionKey, horizontalPadding: 16))
                         .accessibilityAddTraits(navigation.section == section ? .isSelected : [])
                         .overlay {
                             if tour.step?.section == section {
-                                RoundedRectangle(cornerRadius: Theme.Radius.key)
+                                Capsule()
                                     .strokeBorder(palette.key, lineWidth: 2)
                                     .padding(-4)
-                                    .offset(y: -1)
                             }
                         }
                         .anchorPreference(key: SectionKeyAnchors.self, value: .bounds) { [section: $0] }
@@ -68,7 +70,7 @@ private struct TopBar: View {
         }
         .padding(.leading, 84)
         .padding(.trailing, 22)
-        .frame(height: 52)
+        .frame(height: 64)
     }
 }
 

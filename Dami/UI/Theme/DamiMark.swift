@@ -45,3 +45,40 @@ struct DamiMark: View {
         .accessibilityLabel("Dami")
     }
 }
+
+/// The Dami mark without its cream squircle: the quote mark in the current text colour (so it works in dark mode), the highlighter
+/// stroke and the orange key. Same shapes as `DamiMark`, cropped to them (556 × 460 in the 1024 space, from 244, 318).
+struct DamiMarkGlyph: View {
+    var height: CGFloat = 26
+
+    var body: some View {
+        Canvas { context, canvasSize in
+            let scale = canvasSize.height / 460
+            context.scaleBy(x: scale, y: scale)
+            context.translateBy(x: -244, y: -318)
+            for dx in [CGFloat(0), 184] {
+                context.fill(Path(ellipseIn: CGRect(x: 324 + dx, y: 324, width: 132, height: 132)), with: .foreground)
+                var tail = Path()
+                tail.move(to: CGPoint(x: 456 + dx, y: 390))
+                tail.addCurve(to: CGPoint(x: 344 + dx, y: 544), control1: CGPoint(x: 456 + dx, y: 472), control2: CGPoint(x: 410 + dx, y: 524))
+                tail.addLine(to: CGPoint(x: 337 + dx, y: 509))
+                tail.addCurve(to: CGPoint(x: 399 + dx, y: 429), control1: CGPoint(x: 377 + dx, y: 491), control2: CGPoint(x: 399 + dx, y: 462))
+                tail.closeSubpath()
+                context.fill(tail, with: .foreground)
+            }
+
+            var stroke = context
+            stroke.translateBy(x: 415, y: 664)
+            stroke.rotate(by: .degrees(-2))
+            stroke.fill(
+                Path(roundedRect: CGRect(x: -165, y: -24, width: 330, height: 48), cornerRadius: 8),
+                with: .color(Color(hex: 0xF2D74E))
+            )
+
+            context.fill(Path(ellipseIn: CGRect(x: 630, y: 608, width: 164, height: 164)), with: .color(Color(hex: 0xB83A0E)))
+            context.fill(Path(ellipseIn: CGRect(x: 630, y: 600, width: 164, height: 164)), with: .color(Color(hex: 0xFF5A1F)))
+        }
+        .frame(width: height * 556 / 460, height: height)
+        .accessibilityHidden(true)
+    }
+}

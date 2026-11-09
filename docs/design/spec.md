@@ -264,6 +264,7 @@ hourglass, waveform, record.circle.fill, ellipsis.circle, exclamationmark.triang
 | 5 | `3f0bdef` | Onboarding, `DamiMark` |
 | 6 | `dd14652` | App icon and the five menu bar glyphs |
 | README | `425b014` | Icon header, demo GIF, Install first |
+| Softer | (this commit) | Owner, 2026-11-08: the look felt busy and formal. Bigger default window (1160 × 780) and top bar; tabs are flat text with the chosen one on a soft key-colour tint; buttons and small labels in SF Rounded, sentence case (no mono caps); rounder corners, lower key depth; the LCD panel (D3) replaced by a soft key-tint panel; the top bar shows the mark without its squircle (`DamiMarkGlyph`). Keycaps (⌘V) and the menu bar "Click" pill keep their key look. Earlier sections of this spec still describe the first look where they differ. |
 
 **Not verified:** Increase Contrast, Reduce Motion and VoiceOver on the new look; other Macs and macOS versions; a fresh install
 that also downloads the model. Contrast values are computed with the WCAG formula, not measured on screen.

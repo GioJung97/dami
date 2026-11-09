@@ -25,9 +25,6 @@ enum Theme {
     // MARK: Colours that are the same on every theme
 
     static let danger = Color.dynamic(light: 0xA3321F, dark: 0xE88A72)
-    static let lcd = Color.dynamic(light: 0x262A24, dark: 0x10120E)
-    static let lcdText = Color(hex: 0xDDE8B5)
-    static let lcdLabel = Color(hex: 0x9FAE7A)
     static let onDisabled = Color(hex: 0x857C70)
     /// Text on the highlighter, in light and dark mode alike.
     static let onHighlight = Color(hex: 0x1F1B16)
@@ -44,7 +41,7 @@ enum Theme {
         static let bigStepTitle = SwiftUI.Font.system(size: 32, weight: .semibold, design: .serif)
         static let sectionTitle = SwiftUI.Font.system(size: 18, weight: .semibold, design: .serif)
         static let dayHeader = SwiftUI.Font.system(size: 15, design: .serif).italic()
-        static let wordmark = SwiftUI.Font.system(size: 19, weight: .bold, design: .serif)
+        static let wordmark = SwiftUI.Font.system(size: 23, weight: .bold, design: .serif)
         static let menuWordmark = SwiftUI.Font.system(size: 16, weight: .semibold, design: .serif)
         static let body = SwiftUI.Font.system(size: 14)
         static let callout = SwiftUI.Font.system(size: 13)
@@ -53,10 +50,17 @@ enum Theme {
         static let captionMedium = SwiftUI.Font.system(size: 11, weight: .medium)
         static let keyLabel = SwiftUI.Font.system(size: 10.5, weight: .bold, design: .monospaced)
         static let keyLabelSmall = SwiftUI.Font.system(size: 9.5, weight: .bold, design: .monospaced)
+        /// Tabs and buttons: rounded and in sentence case, so the app reads soft rather than formal.
+        static let sectionKey = SwiftUI.Font.system(size: 14, design: .rounded)
+        static let tabLabel = SwiftUI.Font.system(size: 12.5, design: .rounded)
+        static let buttonLabel = SwiftUI.Font.system(size: 12.5, weight: .semibold, design: .rounded)
+        static let buttonLabelSmall = SwiftUI.Font.system(size: 11, weight: .semibold, design: .rounded)
+        /// Small labels above content ("Quick tour · 1 of 6", "Today", the status).
+        static let label = SwiftUI.Font.system(size: 11.5, weight: .semibold, design: .rounded)
         static let mono = SwiftUI.Font.system(size: 11, design: .monospaced)
         static let monoSmall = SwiftUI.Font.system(size: 10.5, design: .monospaced)
-        static let lcdValue = SwiftUI.Font.system(size: 18, weight: .bold, design: .monospaced)
-        static let lcdLabel = SwiftUI.Font.system(size: 9, design: .monospaced)
+        /// The numbers in Home's "Today" panel.
+        static let statValue = SwiftUI.Font.system(size: 22, weight: .semibold, design: .rounded)
     }
     /// Letter spacing for `Font.keyLabel` and other uppercase mono labels.
     static let keyLabelTracking: CGFloat = 1
@@ -65,17 +69,17 @@ enum Theme {
 
     enum Radius {
         static let window: CGFloat = 12
-        static let menu: CGFloat = 10
-        static let card: CGFloat = 8
-        static let slip: CGFloat = 7
-        static let key: CGFloat = 6
-        static let keycap: CGFloat = 4
+        static let menu: CGFloat = 12
+        static let card: CGFloat = 12
+        static let slip: CGFloat = 10
+        static let key: CGFloat = 9
+        static let keycap: CGFloat = 6
         static let tape: CGFloat = 4
         static let mark: CGFloat = 2
     }
 
     enum Depth {
-        static let key: CGFloat = 3
+        static let key: CGFloat = 2
         static let keycap: CGFloat = 2
         static let pressed: CGFloat = 1
     }

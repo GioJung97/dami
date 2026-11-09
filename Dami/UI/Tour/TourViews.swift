@@ -17,9 +17,7 @@ struct TourLiveView: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
                     Text("Quick tour · \(step.stop) of \(TourController.Step.stops)")
-                        .font(Theme.Font.keyLabelSmall)
-                        .tracking(0.6)
-                        .textCase(.uppercase)
+                        .font(Theme.Font.label)
                         .foregroundStyle(Theme.ink2)
                     Spacer()
                     Button("Skip tour") { tour.end() }
@@ -116,8 +114,7 @@ struct TourLiveView: View {
                     .opacity(step == .hold || step == .speak ? 1 : 0.5)
                 if step == .speak {
                     Label("Listening", systemImage: settings.hudPosition == .bottomCenter ? "arrow.down" : "arrow.up")
-                        .font(Theme.Font.keyLabelSmall)
-                        .textCase(.uppercase)
+                        .font(Theme.Font.label)
                         .foregroundStyle(Theme.ink2)
                 }
             }
@@ -159,9 +156,7 @@ struct TourWindowNote: View {
         if let step = tour.step, step.isInWindow {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Quick tour · \(step.stop) of \(TourController.Step.stops)")
-                    .font(Theme.Font.keyLabelSmall)
-                    .tracking(0.6)
-                    .textCase(.uppercase)
+                    .font(Theme.Font.label)
                     .foregroundStyle(Theme.ink2)
                 Text(title(step)).font(Theme.Font.sectionTitle)
                 Text(message(step))

@@ -25,9 +25,7 @@ struct KeyButtonStyle: ButtonStyle {
             let raised = kind != .destructive && isEnabled
             let depth = compact ? Theme.Depth.keycap : Theme.Depth.key
             configuration.label
-                .font(compact ? Theme.Font.keyLabelSmall : Theme.Font.keyLabel)
-                .tracking(Theme.keyLabelTracking)
-                .textCase(.uppercase)
+                .font(compact ? Theme.Font.buttonLabelSmall : Theme.Font.buttonLabel)
                 .lineLimit(1)
                 .foregroundStyle(foreground)
                 .padding(.horizontal, kind == .destructive ? 6 : (compact ? 7 : 12))
@@ -191,35 +189,40 @@ struct TabKeys<Value: Hashable>: View {
     }
 }
 
-/// One tab key. The chosen one is dark and pressed in.
+/// One tab. Flat and quiet: the chosen one sits on a soft tint of the key colour, the others are plain text.
 struct TabKeyStyle: ButtonStyle {
     let isOn: Bool
     var width: CGFloat? = nil
-    var height: CGFloat = 20
+    var height: CGFloat = 22
+    var font: Font = Theme.Font.tabLabel
+    var horizontalPadding: CGFloat = 10
 
     func makeBody(configuration: Configuration) -> some View {
-        let down = isOn || configuration.isPressed
-        configuration.label
-            .font(Theme.Font.keyLabelSmall)
-            .tracking(0.6)
-            .textCase(.uppercase)
-            .lineLimit(1)
-            .foregroundStyle(isOn ? Theme.onSelected : Theme.ink)
-            .padding(.horizontal, 8)
-            .frame(minWidth: width, minHeight: height)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.Radius.keycap)
-                    .fill(isOn ? Theme.selected : Theme.keyFace)
-                    .overlay(RoundedRectangle(cornerRadius: Theme.Radius.keycap).strokeBorder(isOn ? Theme.selected : Theme.keyEdge))
-                    .background(
-                        RoundedRectangle(cornerRadius: Theme.Radius.keycap)
-                            .fill(Theme.keyDepthNeutral)
-                            .offset(y: down ? Theme.Depth.pressed : Theme.Depth.keycap)
-                    )
-            )
-            .offset(y: down ? Theme.Depth.keycap - Theme.Depth.pressed : 0)
-            .padding(.bottom, Theme.Depth.keycap)
-            .contentShape(Rectangle())
+        TabBody(configuration: configuration, style: self)
+    }
+
+    private struct TabBody: View {
+        let configuration: ButtonStyleConfiguration
+        let style: TabKeyStyle
+        @Environment(\.palette) private var palette
+        @State private var hovering = false
+
+        var body: some View {
+            configuration.label
+                .font(style.font.weight(style.isOn ? .semibold : .medium))
+                .lineLimit(1)
+                .fixedSize()
+                .foregroundStyle(style.isOn ? Theme.ink : Theme.ink2)
+                .padding(.horizontal, style.horizontalPadding)
+                .frame(minWidth: style.width, minHeight: style.height)
+                .background(
+                    Capsule().fill(style.isOn ? AnyShapeStyle(palette.key.opacity(0.16))
+                        : AnyShapeStyle(Theme.ink.opacity(hovering || configuration.isPressed ? 0.06 : 0)))
+                )
+                .contentShape(Capsule())
+                .onHover { hovering = $0 }
+                .animation(.easeOut(duration: 0.12), value: style.isOn)
+        }
     }
 }
 

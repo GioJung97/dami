@@ -183,11 +183,11 @@ struct DictionaryView: View {
                     .frame(maxWidth: 560)
                 }
                 if !pending.isEmpty {
-                    Text("WAITING FOR AN ANSWER").font(Theme.Font.keyLabel).tracking(Theme.keyLabelTracking).foregroundStyle(Theme.ink2)
+                    Text("Waiting for an answer").font(Theme.Font.label).foregroundStyle(Theme.ink2)
                     ForEach(pending) { SuggestionBox(suggestion: $0) }
                 }
                 if !declined.isEmpty {
-                    Text("DECLINED").font(Theme.Font.keyLabel).tracking(Theme.keyLabelTracking).foregroundStyle(Theme.ink2)
+                    Text("Declined").font(Theme.Font.label).foregroundStyle(Theme.ink2)
                     ForEach(declined) { suggestion in
                         HStack {
                             Text(suggestion.find)

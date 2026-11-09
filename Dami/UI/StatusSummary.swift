@@ -31,9 +31,7 @@ struct StatusBadge: View {
         HStack(spacing: 4) {
             StatusDot(kind: controller.statusKind(paused: settings.paused))
             Text(controller.shortStatus(paused: settings.paused))
-                .font(Theme.Font.keyLabelSmall)
-                .tracking(0.6)
-                .textCase(.uppercase)
+                .font(Theme.Font.label)
         }
         .help(controller.statusText)
         .accessibilityElement(children: .combine)

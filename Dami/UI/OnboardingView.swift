@@ -185,7 +185,7 @@ struct OnboardingView: View {
             if granted {
                 HStack(spacing: 6) {
                     DoneCheck()
-                    Text("Allowed").font(Theme.Font.keyLabel).tracking(Theme.keyLabelTracking).textCase(.uppercase)
+                    Text("Allowed").font(Theme.Font.label)
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Allowed")

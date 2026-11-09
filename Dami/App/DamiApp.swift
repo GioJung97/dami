@@ -22,7 +22,7 @@ struct DamiApp: App {
                 .environmentObject(navigation)
                 .showsDockIconWhileOpen()
         }
-        .defaultSize(width: 1000, height: 680)
+        .defaultSize(width: 1160, height: 780)
         .windowStyle(.hiddenTitleBar)
 
         Window("Quick tour", id: WindowID.liveTour) {

@@ -6,6 +6,8 @@ struct HomeView: View {
     @ObservedObject private var settings = AppSettings.shared
     @EnvironmentObject private var navigation: Navigation
 
+    @Environment(\.palette) private var palette
+
     var body: some View {
         let stats = store.todayStats()
         ScrollView {
@@ -13,7 +15,7 @@ struct HomeView: View {
                 PageHeader(title: greeting, subtitle: "Hold \(settings.shortcut.displayName) in any app, speak, and let go.")
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Today").font(Theme.Font.keyLabel).tracking(Theme.keyLabelTracking).textCase(.uppercase).foregroundStyle(Theme.ink2)
+                    Text("Today").font(Theme.Font.label).foregroundStyle(Theme.ink2)
                     Grid(alignment: .leading, horizontalSpacing: 28, verticalSpacing: 4) {
                         GridRow {
                             stat("Words dictated", stats.words.formatted())
@@ -22,15 +24,10 @@ struct HomeView: View {
                             stat("Day streak", "\(stats.streakDays)")
                         }
                     }
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: Theme.Radius.card)
-                            .fill(Theme.lcd)
-                            .shadow(color: .black.opacity(0.6), radius: 3, y: 2)
-                            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
-                    )
+                    .background(RoundedRectangle(cornerRadius: Theme.Radius.card).fill(palette.key.opacity(0.10)))
                     .accessibilityElement(children: .contain)
                 }
 
@@ -106,11 +103,11 @@ struct HomeView: View {
         }
     }
 
-    /// One number in the LCD panel.
+    /// One number in today's panel.
     private func stat(_ label: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(Theme.Font.lcdValue).foregroundStyle(Theme.lcdText)
-            Text(label).font(Theme.Font.lcdLabel).tracking(1).textCase(.uppercase).foregroundStyle(Theme.lcdLabel)
+            Text(value).font(Theme.Font.statValue).foregroundStyle(Theme.ink)
+            Text(label).font(Theme.Font.footnote).foregroundStyle(Theme.ink2)
         }
         .accessibilityElement(children: .combine)
     }

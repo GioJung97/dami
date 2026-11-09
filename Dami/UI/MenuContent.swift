@@ -173,9 +173,8 @@ struct MenuContent: View {
 
             if !controller.recent.isEmpty {
                 menuRule
-                Text("RECENT · CLICK TO PASTE AGAIN")
-                    .font(Theme.Font.keyLabelSmall)
-                    .tracking(0.7)
+                Text("Recent · click to paste again")
+                    .font(Theme.Font.label)
                     .foregroundStyle(Theme.ink2)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)

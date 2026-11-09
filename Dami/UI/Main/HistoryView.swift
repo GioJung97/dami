@@ -207,16 +207,16 @@ private struct HistoryDetail: View {
                     fixBox
                 } else if let fixed = dictation.fixedText {
                     VStack(alignment: .leading, spacing: 6) {
-                        sectionLabel("FIXED TEXT")
+                        sectionLabel("Fixed text")
                         Text(fixed).font(.system(size: 16)).textSelection(.enabled)
                     }
                     VStack(alignment: .leading, spacing: 4) {
-                        sectionLabel("PASTED TEXT")
+                        sectionLabel("Pasted text")
                         Text(dictation.finalText).font(Theme.Font.footnote).foregroundStyle(Theme.ink2).textSelection(.enabled)
                     }
                 } else {
                     VStack(alignment: .leading, spacing: 6) {
-                        sectionLabel("PASTED TEXT")
+                        sectionLabel("Pasted text")
                         Text(dictation.finalText).font(.system(size: 16)).textSelection(.enabled)
                     }
                 }
@@ -227,7 +227,7 @@ private struct HistoryDetail: View {
 
                 if dictation.rawText != dictation.finalText {
                     VStack(alignment: .leading, spacing: 6) {
-                        sectionLabel("WHAT WHISPER HEARD")
+                        sectionLabel("What Whisper heard")
                         Text(dictation.rawText).font(Theme.Font.callout).textSelection(.enabled)
                         if let note = dictation.note {
                             Text(note).font(Theme.Font.footnote).foregroundStyle(Theme.ink2)
@@ -274,7 +274,7 @@ private struct HistoryDetail: View {
 
     private var fixBox: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("FIX THE TEXT")
+            sectionLabel("Fix the text")
             TextEditor(text: $draft)
                 .font(.system(size: 15))
                 .frame(minHeight: 80, maxHeight: 200)
@@ -331,7 +331,7 @@ private struct HistoryDetail: View {
     }
 
     private func sectionLabel(_ text: String) -> some View {
-        Text(text).font(Theme.Font.keyLabel).tracking(Theme.keyLabelTracking).foregroundStyle(Theme.ink2)
+        Text(text).font(Theme.Font.label).foregroundStyle(Theme.ink2)
     }
 
     private func startFixing() {
