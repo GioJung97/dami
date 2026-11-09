@@ -21,7 +21,7 @@ The name comes from Korean 담다, "to hold, to put in": it holds what you say. 
 
 ## Install
 
-Apple Silicon Mac, macOS 14 or newer (so far tested on macOS 15.3 only), and about 1 GB free for the speech model (632 MB), which
+Apple Silicon Mac, macOS 14 or newer (so far tested on macOS 15.3 and 27.0.1), and about 1 GB free for the speech model (632 MB), which
 downloads once on first launch.
 
 ### From a .dmg
@@ -57,7 +57,7 @@ Run the tests with `swift test --package-path DamiCore`.
 | Permission | Why |
 |---|---|
 | Microphone | To hear you while you hold the shortcut |
-| Input Monitoring | Asked for only if the shortcut doesn't start with Accessibility alone. It wasn't needed on the one Mac tested (macOS 15.3) |
+| Input Monitoring | Asked for only if the shortcut doesn't start with Accessibility alone. It wasn't needed on macOS 15.3, and wasn't reported on macOS 27.0.1 |
 | Accessibility | To notice the shortcut in any app, to paste with ⌘V, and to read the one character before the cursor when deciding on a space. With Learn from fixes on, also to read the text of the field it pasted into, about once a second for up to 2 minutes, to see if you fix it |
 
 ## Using it
@@ -130,11 +130,12 @@ words like German "er" and Portuguese "um" are real words there.
 
 - Whisper transcribes one language at a time, so the same word can come out in either language. Mixed sentences are less
   accurate than single-language ones.
-- Bluetooth microphones are unreliable. With AirPods, dictations often produced nothing in testing, and first words can
-  be cut. The built-in or a wired microphone is recommended.
+- Bluetooth microphones such as AirPods are slow to start: the headset switches to its call mode, which takes 1–2 s, and its
+  sound drops to call quality while you dictate. "Starting microphone…" shows meanwhile, and the start sound plays once it hears
+  you. The built-in mic avoids both (menu › Microphone). Only AirPods were tried.
 - Rules are deliberately narrow, so some fillers stay ("like", "어"), and sentences aren't rewritten.
-- Text appears about 1.5 s after you let go, mostly whatever the length. In Auto, about 0.4 s of that is telling the two languages
-  apart; choosing one language in Settings skips it.
+- Text appears about 1.2 s after you let go for a short dictation, longer for long ones. In Auto, about 0.4 s of that is telling
+  the two languages apart; choosing one language in Settings skips it.
 - In fields Accessibility can't read, such as terminals, spacing between dictations is a best guess. It can miss a space
   after 2 minutes, and moving the cursor with the mouse alone can add an extra one.
 - A green check means the paste was sent. In some apps, when no text field is focused, the text may not appear. It's still in
@@ -143,6 +144,8 @@ words like German "er" and Portuguese "um" are real words there.
 - Learning from fixes where you pasted only works in apps Accessibility can read. A fix seen there is matched by position, so an
   edit that crosses the edge of the pasted text isn't saved.
 - Some screens show features that aren't built yet, marked as coming later.
+- So far it has been used by its author only, on two Macs. Nobody else has tried it yet.
+- No automatic updates, since that would use the network. Download a new version and replace the app (see Install).
 
 ## License
 

@@ -111,18 +111,22 @@ on `hasCompletedOnboarding`, so History stays reachable if a permission is remov
 
 **Found 2026-11-07 (owner's setup retest), for v1.0:** after Allow in macOS's Microphone prompt, focus goes back to the app that
 was in front before, and the owner had to switch back to Dami. The setup window stays open behind. Likely fix: bring the setup
-window forward once the microphone request returns. Accessibility needed no reopen, as expected.
+window forward once the microphone request returns. Accessibility needed no reopen, as expected. **Fixed in v1.0 M1:** Dami comes
+to the front when the request returns. The owner's install on the second Mac (M5) was reported as working as a whole, not this item
+on its own.
 
 **Found 2026-11-08 (owner, first install from the .dmg):** Dami wasn't in System Settings' Accessibility list after Allow, and the
 owner added it by hand. Not reproduced the same day: with Accessibility reset (`tccutil reset`) and setup run again on the
 `build.sh` install, Allow added Dami to the list and only the toggle was needed. A guess, not checked: the first open from the .dmg
 ran from a moved copy (App Translocation, which macOS uses for quarantined apps), so the list entry belonged to another path. Retest on
-the next first install from a .dmg: open Dami from Applications after dragging, never from the .dmg window.
+the next first install from a .dmg: open Dami from Applications after dragging, never from the .dmg window. Not reported again on
+the second Mac (M5, 2026-11-08), first install and the update over it. Still unexplained. The README's install steps say to open
+Dami from Applications.
 
 **Not verified**
 - The Input Monitoring row and its advice, which can't be reproduced on this Mac.
 - The in-app "Quit & Reopen" button. It wasn't recorded as pressed.
-- Any other Mac or macOS version.
+- Other Macs than the owner's two (macOS 15.3 and 27.0.1), and other macOS versions.
 - Whether the Window menu can open the main window during setup, which would get around the lock.
 - "This can take a few minutes the first time" on the Prepare step. That time hasn't been measured, and a Mac that has prepared the
   model before may be faster than a real first run.
@@ -155,6 +159,7 @@ language on the bench clips.
 are byte for byte the same, so the first window and a run without the prompt reuse detection's encoding. Detection itself is
 unchanged. First samples: transcription about 0.52 s against about 0.8 s before, total 1.25 s against 1.5 s; the latency log shows
 `reused=1`.
+
 ## English dictations sometimes come back empty on the first run (2026-11-06)
 
 Found in v0.4 M1. Both English dictations among 11 samples came back empty with the vocabulary prompt and were recovered by the
@@ -176,8 +181,8 @@ for v1.0 because a new user who sees no HUD can't tell recording has started. **
 or a new user account): does the HUD show during the first recording right after setup, before any reopen?
 
 **Retest, same day:** settings and permissions reset (model kept), setup run again, then a recording right after setup with no
-reopen: the HUD showed. So it didn't come back on a second fresh setup. Still unknown: a first install that also downloads the model,
-and other Macs.
+reopen: the HUD showed. So it didn't come back on a second fresh setup. A first install that also downloaded the model, on the
+second Mac (v1.0 M5, 2026-11-08), was reported as working as a whole. Still unknown: the cause, and other people's Macs.
 
 **Unrelated, seen at the same time:** the menu bar item sometimes disappears when an app with many menus (cmux, Cursor) is in
 front. That's macOS hiding status items behind the notch. Dami's item sits just right of it.
