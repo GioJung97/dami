@@ -21,15 +21,26 @@ The name comes from Korean 담다, "to hold, to put in": it holds what you say. 
 
 ## Install
 
-There's no prebuilt download yet, so Dami is built from source.
+Apple Silicon Mac, macOS 14 or newer (so far tested on macOS 15.3 only), and about 1 GB free for the speech model (632 MB), which
+downloads once on first launch.
 
-### Requirements
+### From a .dmg
 
-- Apple Silicon Mac, macOS 14 or newer. So far tested on macOS 15.3 only.
-- Xcode, [XcodeGen](https://github.com/yonaskolb/XcodeGen) and an Apple Development certificate, to build it.
-- About 1 GB free for the speech model (632 MB), which downloads once on first launch.
+There's no public download yet. If you were given a `Dami-<version>.dmg`:
 
-### Build
+1. Open it and drag **Dami** onto **Applications**.
+2. Open Dami from Applications. Dami isn't notarized by Apple, so macOS blocks it the first time with a message that it can't
+   check the app. Choose **Done**, not Move to Trash.
+3. Open **System Settings › Privacy & Security**, scroll down to **Security**, and choose **Open Anyway** next to the line about
+   Dami. Confirm with your password or Touch ID, then **Open**. macOS only asks this once.
+4. Setup walks you through the permissions and the model download.
+
+To update, quit Dami (menu bar icon › Quit Dami), then drag the new version onto Applications and choose Replace. Permissions are kept,
+since every version is signed the same way.
+
+### Build from source
+
+You need Xcode, [XcodeGen](https://github.com/yonaskolb/XcodeGen) and an Apple Development certificate.
 
 ```bash
 brew install xcodegen

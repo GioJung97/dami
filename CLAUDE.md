@@ -14,6 +14,8 @@ speak English plus one other language (Korean is the tested one) or both mixed, 
 - `scripts/build.sh` (Release by default; `scripts/build.sh Debug` for debugging): runs xcodegen from
   `project.yml`, builds, signs with the Apple Development certificate, installs to
   `/Applications/Dami.app`, relaunches.
+- `scripts/release.sh`: the same signed Release build in `build/release/Dami-<version>.dmg`, without installing anything. Not
+  notarized; the README explains Open Anyway.
 - Version: `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`. Raise them when a version merges into `main` (v0.3
   was missed, so it jumped from 0.2.0 to 0.3.1).
 - Test: `swift test --package-path DamiCore`. Pure logic goes in that package, with tests.
