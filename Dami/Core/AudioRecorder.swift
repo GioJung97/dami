@@ -54,10 +54,15 @@ final class AudioRecorder {
                 let began = Date()
                 let attempts = try beginCaptureUntilAudio(session)
                 if attempts > 1 { log.notice("Mic needed \(attempts, privacy: .public) starts before audio arrived") }
+                if device.isBluetooth {
+                    HealthCounter.count(.bluetoothMicStarted)
+                    if attempts > 1 { HealthCounter.count(.bluetoothMicRestarted) }
+                }
                 log.notice("Mic started in \(Int(Date().timeIntervalSince(began) * 1000), privacy: .public) ms, wireless: \(device.isBluetooth || device.isContinuity, privacy: .public)")
                 let started = Started(device: device, chosenMissing: deviceUID != nil && chosen == nil)
                 DispatchQueue.main.async { completion(.success(started)) }
             } catch {
+                if session.device?.isBluetooth == true { HealthCounter.count(.bluetoothMicFailed) }
                 DispatchQueue.main.async { completion(.failure(error)) }
             }
         }

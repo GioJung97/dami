@@ -375,6 +375,25 @@ final class Store: ObservableObject {
     // MARK: Automatic capture
 
     /// Numbers only: how watching one paste ended, so "not edited" and "couldn't see" can be told apart.
+    /// Numbers only, for the diagnostics file: the database check, the number of dictations, and how paste watches ended.
+    func diagnostics() -> (check: String, dictations: Int, pasteWatches: [String: Int]) {
+        if unavailableReason != nil { return ("unavailable: \(isInMemoryFallback ? "in memory" : "closed")", 0, [:]) }
+        do {
+            return try db.read { db in
+                let check = try String.fetchAll(db, sql: "PRAGMA quick_check")
+                let dictations = try Int.fetchOne(db, sql: "SELECT count(*) FROM dictation") ?? 0
+                var watches: [String: Int] = [:]
+                for row in try Row.fetchAll(db, sql: "SELECT outcome, endedBy, count(*) AS n FROM pasteWatch GROUP BY outcome, endedBy") {
+                    let key = [row["outcome"] as String?, row["endedBy"] as String?].compactMap { $0 }.joined(separator: ".")
+                    watches[key] = row["n"]
+                }
+                return (check == ["ok"] ? "ok" : "problem", dictations, watches)
+            }
+        } catch {
+            return ("unreadable", 0, [:])
+        }
+    }
+
     func recordPasteWatch(dictationId: Int64, outcome: String, endedBy: String?, secondsToEdit: Double?) {
         do {
             try db.write { db in

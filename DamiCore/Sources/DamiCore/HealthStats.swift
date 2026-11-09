@@ -5,6 +5,9 @@ import Foundation
 public enum HealthStats {
     public enum Event: String, CaseIterable, Sendable {
         case databaseUnavailable, historySaveFailed, tapTimedOut, tapDisabledByInput, micLost, recordingFailed, modelUnavailable
+        /// Bluetooth mics (v1.0 M3): how often they're used, needed a restart before audio came, or gave none at all. Not failures
+        /// in themselves, but kept here so a tester's file shows how much Bluetooth matters.
+        case bluetoothMicStarted, bluetoothMicRestarted, bluetoothMicFailed
     }
 
     public static func key(_ event: Event, on date: Date, timeZone: TimeZone = .current) -> String {

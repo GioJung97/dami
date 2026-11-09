@@ -46,7 +46,7 @@ struct SettingsView: View {
                     case .shortcut: shortcut
                     case .language: language
                     case .models: ModelsSection(controller: controller)
-                    case .privacy: PrivacySection()
+                    case .privacy: PrivacySection(controller: controller)
                     case .sync: sync
                     }
                 }
@@ -338,8 +338,10 @@ enum MemoryInfo {
 // MARK: - Privacy
 
 private struct PrivacySection: View {
+    @ObservedObject var controller: DictationController
     @ObservedObject private var settings = AppSettings.shared
     @State private var confirmingDelete = false
+    @State private var diagnostics: DiagnosticsText?
     @State private var audioBytes: Int64 = 0
 
     private func prune() {
@@ -397,8 +399,59 @@ private struct PrivacySection: View {
                     Text("This deletes every dictation, saved recording and fix, and the copy kept from the last update. Your Dictionary is kept. This can't be undone.")
                 }
         }
+        Section("Diagnostics") {
+            HStack {
+                Text("A file to send when something goes wrong: versions, settings, counts and timings. No dictated text, Dictionary, device names or keys.")
+                    .font(Theme.Font.footnote)
+                    .foregroundStyle(Theme.ink2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+                Button("Export diagnostics…") {
+                    diagnostics = DiagnosticsText(text: DiagnosticsExport.report(modelReady: controller.isModelReady))
+                }
+            }
+        }
+        .sheet(item: $diagnostics) { DiagnosticsSheet(text: $0.text) }
         .onAppear { audioBytes = Store.shared.audioBytesUsed() }
         .onChange(of: settings.saveAudio) { audioBytes = Store.shared.audioBytesUsed() }
+    }
+}
+
+private struct DiagnosticsText: Identifiable {
+    let id = UUID()
+    let text: String
+}
+
+/// Shows the whole file before it's saved, so nothing leaves without being seen (v1.0 M3).
+private struct DiagnosticsSheet: View {
+    let text: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Diagnostics").font(Theme.Font.sectionTitle)
+            Text("This is everything in the file. Read it, then save it and send it to whoever asked.")
+                .font(Theme.Font.footnote)
+                .foregroundStyle(Theme.ink2)
+            ScrollView {
+                Text(text)
+                    .font(Theme.Font.mono)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(minHeight: 320)
+            HStack {
+                Spacer()
+                Button("Close") { dismiss() }
+                Button("Save…") {
+                    DiagnosticsExport.save(text)
+                    dismiss()
+                }
+                .buttonStyle(.primaryKey)
+            }
+        }
+        .padding(20)
+        .frame(width: 620, height: 520)
     }
 }
 
