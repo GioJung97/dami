@@ -42,8 +42,10 @@ speak English plus one other language (Korean is the tested one) or both mixed, 
 - **Design (JD2 "Notebook with keys") is built and merged into `v1.0`** (owner, 2026-11-08). Spec:
   `docs/design/spec.md`. All colours, fonts and sizes come from `Dami/UI/Theme/`; no literal values in views. Theme, key color and
   light/dark are user settings. App icon: `scripts/make-icon.swift`; README GIF: `scripts/make-readme-demo.swift` (made-up text).
-- **v0.4 is finished and on `main`** (owner, 2026-11-06), after v0.3.1 (2026-11-06), v0.3 (2026-11-05) and v0.2 (2026-11-04). The next version starts on a new branch from
-  `main`. On a new machine: `git fetch` and switch to the newest version branch.
+- **v1.0 is released as 1.0.0** (owner, 2026-11-08): merged to `main`, tag `v1.0.0`, GitHub Release with the `.dmg`. Before it:
+  v0.4 and v0.3.1 (2026-11-06), v0.3 (2026-11-05), v0.2 (2026-11-04). Merged version branches were deleted (owner, 2026-11-08);
+  each version is a merge commit on `main`. The next version starts on a new branch from `main`. On a new machine: `git fetch`, then
+  `main` or the newest version branch if one exists.
 - **Stability is checked continuously, not over a fixed period** (owner, 2026-11-04). Rare problems may not appear in any given week,
   so this runs alongside new work. The owner reports what they notice. **At the end of each milestone, an agent checks what the owner
   can't see:** `scripts/health-check.sh` (failure and drop counters, app errors, crash reports, database health), then reports anything
