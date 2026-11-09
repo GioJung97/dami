@@ -33,6 +33,8 @@ enum Theme {
     static let onHighlight = Color(hex: 0x1F1B16)
     /// Text on a key-colour fill.
     static let onKey = Color.white
+    /// Dims the screen around the menu bar icon during the quick tour.
+    static let scrim = Color.black.opacity(0.45)
 
     // MARK: Type (spec §4)
 
