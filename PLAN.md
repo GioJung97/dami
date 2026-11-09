@@ -30,7 +30,8 @@ right away, in any version.
    README and download page explain the first-launch block and how to allow it in System Settings.
 3. On another Mac without Xcode: install from the `.dmg`, allow it, finish onboarding, dictate. Installing a new version over it keeps
    the permissions. This has never been tried with the current signature.
-4. 2–5 other people have used it with consent, without losing speech, using a diagnostics export with no text in it.
+4. 2–5 other people have used it with consent, without losing speech, using a diagnostics export with no text in it. **Waived by the
+   owner (2026-11-08), unverified:** only the owner has used it. The diagnostics export and the tester note (`docs/testers.md`) exist.
 5. What's published has been checked as fine to publish. The repo is already public with its history (owner, 2026-11-05), so
    this means a review of tracked files, not fresh history. Credentials never go in.
 6. Known limits are written down honestly.
