@@ -38,7 +38,7 @@ speak English plus one other language (Korean is the tested one) or both mixed, 
 - **Renamed from LocalFlow to Dami** (owner, 2026-11-07, branch `rename`): bundle ID `io.github.giojung97.dami`, data in
   `~/Library/Application Support/Dami/`. Dated history (`docs/sessions/`, `docs/plans/v0*`, `bench/cleanup_results.md`) keeps the
   old name on purpose. The old app, data folder, caches, defaults and permission entries were removed on the owner's say
-  (2026-11-07); a backup is in `~/Documents/LocalFlow-backup-2026-11-07`. The GitHub repo is still named `localflow`.
+  (2026-11-07); a backup is in `~/Documents/LocalFlow-backup-2026-11-07`. The GitHub repo was renamed to `dami` (owner, 2026-11-08); the local folder may still be `localflow`.
 - **Design (JD2 "Notebook with keys") is built and merged into `v1.0`** (owner, 2026-11-08). Spec:
   `docs/design/spec.md`. All colours, fonts and sizes come from `Dami/UI/Theme/`; no literal values in views. Theme, key color and
   light/dark are user settings. App icon: `scripts/make-icon.swift`; README GIF: `scripts/make-readme-demo.swift` (made-up text).
