@@ -4,10 +4,10 @@ Things we know about and chose not to chase yet. When someone reports one, start
 
 ## Green check, but the text didn't appear
 
-**What happens:** LocalFlow shows the check, but nothing shows up in the app. The check only means ⌘V was sent. Accessibility
+**What happens:** Dami shows the check, but nothing shows up in the app. The check only means ⌘V was sent. Accessibility
 said the focused element could take text, and it couldn't. The speech isn't lost: it's in History and in the menu's Recent list.
 
-**Why it isn't fully solved:** apps describe their focused element in different ways, so `FocusClassifier` (in `LocalFlowCore`)
+**Why it isn't fully solved:** apps describe their focused element in different ways, so `FocusClassifier` (in `DamiCore`)
 decides by how an app is built, and outside web pages an unsure answer means paste. That's right for fields that don't describe
 themselves, and wrong for a non-field that claims a selection or says nothing.
 
@@ -22,7 +22,7 @@ themselves, and wrong for a non-field that claims a selection or says nothing.
 1. Ask which app, and where the focus was (for example "the file list in VS Code").
 2. Have them run this in Terminal, reproduce it once, and send the line. It has the app, role and decision, never any text:
    ```
-   log stream --level debug --predicate 'subsystem == "com.localflow.app" AND category == "insertion"'
+   log stream --level debug --predicate 'subsystem == "io.github.giojung97.dami" AND category == "insertion"'
    ```
 3. Add that case to `FocusClassifierTests` first, then fix `FocusClassifier`. Being unsure on a web page means copying, which only
    costs the user one ⌘V, so prefer that over a silent miss.
@@ -35,6 +35,18 @@ also match non-fields on other sites.
 
 AirPods connected, but of 8 wireless starts only about 3 produced a saved dictation in M2 testing. Cause not investigated. It's
 on the later list in `docs/plans/v0.2.md`.
+
+**Cause found (2026-11-08, v1.0 M1).** AirPods sit in their music mode and switch to their call mode (24 kHz) when the
+microphone opens, which took 1.0–2.3 s here. Until then the engine reads the old 48 kHz format, so starting either fails with
+`-10868` (format not supported) or succeeds with no audio at all, which ended as "nothing heard": speech lost without an error.
+Separately, choosing the built-in mic while AirPods were the default failed the same way, since the engine kept the default
+device's format.
+
+**Fixed:** the recorder gives the engine the chosen mic's own format, and starts again on a new engine until audio arrives (up to
+4 s), then fails with a plain message. The start sound plays only once audio arrives, 0.3 s later on Bluetooth so the headset's
+switch doesn't swallow it, and "Starting microphone…" shows if that takes over 0.5 s. Music in the AirPods still drops to call
+quality while dictating, as with any app using their mic; choosing the built-in mic avoids that. Not verified: other Bluetooth
+headsets, and the iPhone as a microphone.
 
 ## Spacing in fields Accessibility can't read
 
@@ -87,7 +99,7 @@ tested a full first run on this Mac (2026-11-05, macOS 15.3). Another Mac hasn't
 - **The full menu was open during setup,** so someone couldn't tell whether setup had finished.
 - **"Preparing…" looked frozen,** with the bar sitting at 100%.
 
-**What the owner's tests found about Input Monitoring.** With Accessibility allowed first, the check turned true at once, LocalFlow
+**What the owner's tests found about Input Monitoring.** With Accessibility allowed first, the check turned true at once, Dami
 didn't appear in Input Monitoring in System Settings, and the shortcut and dictation worked with no reopen. Setup therefore asks for
 Microphone and Accessibility, and shows Input Monitoring only if the shortcut hasn't started 5 seconds after those two. That row stays
 because other macOS versions may differ, and without it a failure there would be a shortcut that silently does nothing. It can go if
@@ -97,10 +109,24 @@ testers on other versions never see it.
 reach or quit the app. Until setup is done it opens a small panel with what's left, "Continue setup" and "Quit". The lock depends only
 on `hasCompletedOnboarding`, so History stays reachable if a permission is removed later.
 
+**Found 2026-11-07 (owner's setup retest), for v1.0:** after Allow in macOS's Microphone prompt, focus goes back to the app that
+was in front before, and the owner had to switch back to Dami. The setup window stays open behind. Likely fix: bring the setup
+window forward once the microphone request returns. Accessibility needed no reopen, as expected. **Fixed in v1.0 M1:** Dami comes
+to the front when the request returns. The owner's install on the second Mac (M5) was reported as working as a whole, not this item
+on its own.
+
+**Found 2026-11-08 (owner, first install from the .dmg):** Dami wasn't in System Settings' Accessibility list after Allow, and the
+owner added it by hand. Not reproduced the same day: with Accessibility reset (`tccutil reset`) and setup run again on the
+`build.sh` install, Allow added Dami to the list and only the toggle was needed. A guess, not checked: the first open from the .dmg
+ran from a moved copy (App Translocation, which macOS uses for quarantined apps), so the list entry belonged to another path. Retest on
+the next first install from a .dmg: open Dami from Applications after dragging, never from the .dmg window. Not reported again on
+the second Mac (M5, 2026-11-08), first install and the update over it. Still unexplained. The README's install steps say to open
+Dami from Applications.
+
 **Not verified**
 - The Input Monitoring row and its advice, which can't be reproduced on this Mac.
 - The in-app "Quit & Reopen" button. It wasn't recorded as pressed.
-- Any other Mac or macOS version.
+- Other Macs than the owner's two (macOS 15.3 and 27.0.1), and other macOS versions.
 - Whether the Window menu can open the main window during setup, which would get around the lock.
 - "This can take a few minutes the first time" on the Prepare step. That time hasn't been measured, and a Mac that has prepared the
   model before may be faster than a real first run.
@@ -128,8 +154,35 @@ about 0.44 s on every Auto dictation, a quarter to a third of the 1.6 s from rel
 before v1.0** (owner, 2026-11-06): reuse the encoder output for transcription. Check afterwards that detection picks the same
 language on the bench clips.
 
+
+**Fixed in v1.0 M2 (2026-11-08).** `ReusingAudioEncoder` wraps WhisperKit's encoder and returns the last output when the mel features
+are byte for byte the same, so the first window and a run without the prompt reuse detection's encoding. Detection itself is
+unchanged. First samples: transcription about 0.52 s against about 0.8 s before, total 1.25 s against 1.5 s; the latency log shows
+`reused=1`.
+
 ## English dictations sometimes come back empty on the first run (2026-11-06)
 
 Found in v0.4 M1. Both English dictations among 11 samples came back empty with the vocabulary prompt and were recovered by the
 retry without it, about 0.45 s later. Nothing was lost. Two samples can't say how often this happens or why. Watch it in the latency
 samples (`runs=2` with `lang=en`) before doing anything.
+
+## HUD not visible while recording, after a fresh install (2026-11-07)
+
+**What happened:** on the first run of Dami (fresh settings and permissions after the rename), the shortcut and dictation worked
+and text was pasted, but the HUD never showed while the keys were held. A window log (owner and window bounds only, no content)
+found no HUD window on screen during the recording. After the paste it was on screen for about 0.5 s, with its x position
+outside the display and the menu bar item at several x positions at once, as during a screen-wide slide.
+
+**What fixed it:** the owner turned Dami off and on in Accessibility, then quit and reopened Dami. Both were done together, so it
+isn't known which one fixed it. That app session had run since the first launch, through setup.
+
+**Not known:** the cause, whether it happens on every fresh install, and whether it is tied to setup, Spaces or cmux. It matters
+for v1.0 because a new user who sees no HUD can't tell recording has started. **Check on the next fresh install** (a tester's Mac
+or a new user account): does the HUD show during the first recording right after setup, before any reopen?
+
+**Retest, same day:** settings and permissions reset (model kept), setup run again, then a recording right after setup with no
+reopen: the HUD showed. So it didn't come back on a second fresh setup. A first install that also downloaded the model, on the
+second Mac (v1.0 M5, 2026-11-08), was reported as working as a whole. Still unknown: the cause, and other people's Macs.
+
+**Unrelated, seen at the same time:** the menu bar item sometimes disappears when an app with many menus (cmux, Cursor) is in
+front. That's macOS hiding status items behind the notch. Dami's item sits just right of it.

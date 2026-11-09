@@ -1,4 +1,4 @@
-# LocalFlow — Plan
+# Dami — Plan
 
 A personal, fully offline replacement for Wispr Flow on macOS.
 Hold a key → speak (English, Korean, or both mixed) → clean text appears wherever your cursor is.
@@ -19,7 +19,7 @@ right away, in any version.
 | v0.3 | It learns from fixes | `docs/plans/v0.3.md` §6 | Done, merged to `main` 2026-11-05 |
 | v0.3.1 | Fixes from the v0.3 review: no meaning changes, no silent loss, deletion that deletes | `docs/plans/v0.3.1.md` §5 | Done, merged to `main` 2026-11-06 |
 | v0.4 | Where the time goes, and whether a local LLM can clean up safely | `docs/plans/v0.4.md` §6 | Done, merged to `main` 2026-11-06. The model failed the pass line, so Smart isn't built |
-| **v1.0** | **Anyone on a Mac can install and trust it** | See below | No plan yet |
+| **v1.0** | **Anyone on a Mac can install and trust it** | `docs/plans/v1.0.md` §6 | Done, merged to `main` 2026-11-08 as 1.0.0. Testers (M6) and some accessibility checks waived |
 | After v1.0 | Improve, based on real needs | Each change on its own | Not scheduled, below |
 
 **Long-term goal:** accuracy improves for each person the more they use it, with everything staying on their Mac.
@@ -30,7 +30,8 @@ right away, in any version.
    README and download page explain the first-launch block and how to allow it in System Settings.
 3. On another Mac without Xcode: install from the `.dmg`, allow it, finish onboarding, dictate. Installing a new version over it keeps
    the permissions. This has never been tried with the current signature.
-4. 2–5 other people have used it with consent, without losing speech, using a diagnostics export with no text in it.
+4. 2–5 other people have used it with consent, without losing speech, using a diagnostics export with no text in it. **Waived by the
+   owner (2026-11-08), unverified:** only the owner has used it. The diagnostics export and the tester note (`docs/testers.md`) exist.
 5. What's published has been checked as fine to publish. The repo is already public with its history (owner, 2026-11-05), so
    this means a review of tracked files, not fresh history. Credentials never go in.
 6. Known limits are written down honestly.
@@ -44,11 +45,12 @@ No LLM in v1.0 (owner, 2026-11-06): Smart mode may be tried again after it, once
 |---|---|
 | Evaluation | Eval tool on the app's pipeline, a larger clip set (`docs/plans/v0.3.md` §7, §5 below) |
 | Accuracy | Very short dictations (`docs/plans/v0.3.md` §7), mixed-language prompt and decoder changes, Korean terms in the prompt, a small spacing corrector, Whisper fine-tuning |
-| Recording | Hands-free stops itself after a long silence (owner's idea, low priority), streaming while speaking, Bluetooth microphone reliability, microphone ranking |
+| Recording | Hands-free stops itself after a long silence (owner's idea, low priority), streaming while speaking, microphone ranking, lowering other audio while dictating like Siri (owner's idea, 2026-11-08; would also keep speaker music out of the built-in mic), keeping a Bluetooth mic open a few seconds after a dictation so the next starts at once |
 | Models | A lighter and a heavier speech model in Settings, choosing models by hardware |
 | Learning | Showing what was learned, highlights on low-probability words, re-dictation detection, merged Dictionary |
 | Pasting | Protection when focus changes during processing, checks in apps not yet tried (Safari, Electron, Word) |
 | Cleanup | Smart mode with a local LLM, tried in v0.4 and not passed: what to change first is in `docs/plans/v0.4.md` §7 |
+| Design | Parts left in the system look: History's selected row, the Microphone pop-up, Settings' form backgrounds, sheets (`docs/design/spec.md` §11) |
 | Features | Command mode, per-app modes |
 | Across Macs | Dictionary export and import, backups, sync |
 | Project | CI, paid Apple account and notarization if permissions don't survive updates |
@@ -79,7 +81,7 @@ No LLM in v1.0 (owner, 2026-11-06): Smart mode may be tried again after it, once
 One native macOS menu bar app written in Swift / SwiftUI.
 
 ```
- ┌──────────────────────────── LocalFlow.app (menu bar, no Dock icon) ────────────────────────────┐
+ ┌──────────────────────────── Dami.app (menu bar, no Dock icon) ────────────────────────────┐
  │                                                                                                 │
  │  HotkeyMonitor ──► DictationController (shortcut + current recording) ◄── HUDController         │
  │   (own thread)          │                                                                       │
@@ -90,7 +92,7 @@ One native macOS menu bar app written in Swift / SwiftUI.
  │                               ├─► TextInserter   clipboard + ⌘V, restore clipboard              │
  │                               └─► Store          SQLite: every dictation, raw + final           │
  │                                                                                                 │
- │  LocalFlowCore (package): pure logic with tests, no AppKit, WhisperKit or GRDB                  │
+ │  DamiCore (package): pure logic with tests, no AppKit, WhisperKit or GRDB                  │
  └─────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -151,7 +153,7 @@ The app shows a first-run checklist that opens each System Settings pane.
 
 ### 4.1 Recording and uploading
 Wispr Flow records your voice and **uploads the audio** (Opus-compressed) to its servers, along with
-text from the field you're typing in. LocalFlow keeps the audio in memory and hands it straight to the
+text from the field you're typing in. Dami keeps the audio in memory and hands it straight to the
 on-device model. No upload, no compression, no network at all. The only network use is the one-time
 model download.
 
@@ -165,7 +167,7 @@ learning around the model instead. In order of payoff:
    tokens (`maxTokenContext` 224 / 2 − 1), so the oldest terms are dropped silently for now.
 2. **Replacement rules.** Deterministic fixes for things Whisper always gets wrong
    ("cloud code" → "Claude Code"). Applied after cleanup.
-3. **Learn from your edits (automatic).** After pasting, LocalFlow re-reads the text field ~10 s later.
+3. **Learn from your edits (automatic).** After pasting, Dami re-reads the text field ~10 s later.
    If you changed a word ("Jisoo" → "Jisu"), it proposes adding a dictionary entry or replacement.
    You approve in a "Suggestions" list. Nothing is added silently.
 4. **Style examples for the LLM.** Your own past dictations (raw → final) become few-shot examples,
@@ -302,19 +304,19 @@ Before relying on it for later decisions (speech model choice, accuracy changes)
 ## 6. Project layout
 
 ```
-localflow/
+dami/
 ├── PLAN.md, README.md, LICENSE, CLAUDE.md
-├── project.yml             source of the generated LocalFlow.xcodeproj (git-ignored)
-├── LocalFlow/
-│   ├── App/                LocalFlowApp, AppSettings, Permissions
+├── project.yml             source of the generated Dami.xcodeproj (git-ignored)
+├── Dami/
+│   ├── App/                DamiApp, AppSettings, Permissions
 │   ├── Core/               DictationController, DictationProcessor, HotkeyMonitor, AudioRecorder, InputDevices, Shortcut
 │   ├── Transcription/      Transcriber (WhisperKit)
 │   ├── Insertion/          TextInserter, FocusedField
 │   ├── Storage/            Store (GRDB)
 │   └── UI/                 HUD, MenuContent, OnboardingView, Main/ (Home, History, Dictionary, Settings)
-├── LocalFlowCore/          package: TextPipeline, CleanupRules, ReplacementEngine, HallucinationFilter, PromptLeak,
+├── DamiCore/          package: TextPipeline, CleanupRules, ReplacementEngine, HallucinationFilter, PromptLeak,
 │                           SpokenLanguage, HotkeyMachine, DictationQueue, InsertionSpacing, ModelFiles, CleanupEval
-│                           localflow-eval (executable), tests
+│                           dami-eval (executable), tests
 ├── bench/                  eval clips (git-ignored), scoring scripts, results.md, cleanup_cases.tsv
 ├── docs/                   plans/, sessions/
 └── scripts/                build.sh
@@ -371,6 +373,9 @@ the Roadmap at the top.
 - **Status (2026-11-04): v0.2 finished and merged to `main`, on the owner's word.** The must-test list is done, with one item waived
   and unverified (dictating on the fallback mic). The owner replaced the week of use with a continuous check alongside v0.3, since a
   fixed period can't promise to catch rare problems (`CLAUDE.md`).
+- **Status (2026-11-08): v1.0 finished as 1.0.0 and merged to `main`** (owner). Signed `.dmg` (`scripts/release.sh`), installed on a
+  second Mac (macOS 27.0.1) and updated over it with permissions kept. Waived and unverified: testers (M6), VoiceOver and Increase
+  Contrast. See `docs/plans/v1.0.md` §6.
 
 ### Phase 3 — Cleanup (2–3 days)
 - Rules layer (fillers, repeats).
@@ -429,13 +434,13 @@ the Roadmap at the top.
 
 ## 8. Portability: one app for any of your Macs
 
-The goal is a self-contained `LocalFlow.app` (or `.dmg`) you can install on any Mac you own, the way
+The goal is a self-contained `Dami.app` (or `.dmg`) you can install on any Mac you own, the way
 you'd install any other app. You don't need Xcode or the source code on those Macs.
 
 **What ships in the app vs. what's downloaded**
 - The app itself is small (~20–50 MB): code only, no models.
 - On first launch, onboarding: grant permissions → pick/auto-pick models → download to
-  `~/Library/Application Support/LocalFlow/Models` → warm-up. Done once per Mac.
+  `~/Library/Application Support/Dami/Models` → warm-up. Done once per Mac.
 - Optional "offline installer": a model folder you can copy from another Mac (or a USB stick)
   instead of downloading.
   It must include both `models/argmaxinc/whisperkit-coreml/` and `models/openai/whisper-large-v3/` (the tokenizer).
@@ -469,7 +474,7 @@ permissions again after every update.
 and (if you have a paid account) notarizes it. You build on this Mac, then install the `.dmg` anywhere.
 
 **What stays in sync between Macs**
-- Synced (via a folder you choose, e.g. iCloud Drive → `LocalFlow/`): dictionary, replacement rules,
+- Synced (via a folder you choose, e.g. iCloud Drive → `Dami/`): dictionary, replacement rules,
   approved edit-learnings, settings, style examples. Small JSON files. The app merges by timestamp, so
   learning on one Mac improves the others.
 - Per-Mac only: history database, saved audio (if enabled), downloaded models, hardware-specific

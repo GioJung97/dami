@@ -1,37 +1,63 @@
-# LocalFlow
+<p align="center">
+  <img src="docs/assets/dami-icon.png" width="128" height="128" alt="Dami icon">
+</p>
 
-Offline dictation for macOS. Hold a key, speak, and the text is pasted at your cursor. Speech recognition runs
-on your Mac with [WhisperKit](https://github.com/argmaxinc/WhisperKit). There's no account and no subscription,
-and your voice isn't uploaded.
+<h1 align="center">Dami</h1>
 
-It handles English and one other language, including both in the same sentence, with English words kept in English.
+<p align="center">
+  Offline dictation for macOS. Hold a key, speak, and the text is pasted at your cursor.<br>
+  English and one other language, even in the same sentence. Your voice never leaves your Mac.
+</p>
+
+<p align="center">
+  <img src="docs/assets/dami-demo.gif" width="800" alt="Holding Right Command and Right Option in a notes window: the Dami indicator shows the recording, then a check, and the sentence appears at the cursor. A second dictation mixes Korean and English.">
+</p>
+
+Speech recognition runs on your Mac with [WhisperKit](https://github.com/argmaxinc/WhisperKit). There's no account and no
+subscription, and your voice isn't uploaded. English words in a sentence in your other language stay in English.
+
 It's an early version, built for its author's daily use. It learns from your fixes, and only changes what you approve.
+The name comes from Korean 담다, "to hold, to put in": it holds what you say. Formerly called LocalFlow.
 
-## Requirements
+## Install
 
-- Apple Silicon Mac, macOS 14 or newer. So far tested on macOS 15.3 only.
-- Xcode, [XcodeGen](https://github.com/yonaskolb/XcodeGen) and an Apple Development certificate, to build it.
-  There's no prebuilt download yet.
-- About 1 GB free for the speech model (632 MB), which downloads once on first launch.
+Apple Silicon Mac, macOS 14 or newer (so far tested on macOS 15.3 and 27.0.1), and about 1 GB free for the speech model (632 MB), which
+downloads once on first launch.
 
-## Build from source
+### From a .dmg
+
+Download `Dami-<version>.dmg` from [Releases](https://github.com/GioJung97/dami/releases), then:
+
+1. Open it and drag **Dami** onto **Applications**.
+2. Open Dami from Applications. Dami isn't notarized by Apple, so macOS blocks it the first time with a message that it can't
+   check the app. Choose **Done**, not Move to Trash.
+3. Open **System Settings › Privacy & Security** (or double-click **Privacy & Security** in the .dmg window), scroll down to **Security**, and choose **Open Anyway** next to the line about
+   Dami. Confirm with your password or Touch ID, then **Open**. macOS only asks this once.
+4. Setup walks you through the permissions and the model download.
+
+To update, quit Dami (menu bar icon › Quit Dami), then drag the new version onto Applications and choose Replace. Permissions are kept,
+since every version is signed the same way.
+
+### Build from source
+
+You need Xcode, [XcodeGen](https://github.com/yonaskolb/XcodeGen) and an Apple Development certificate.
 
 ```bash
 brew install xcodegen
 # Xcode → Settings → Accounts → your Apple ID → Manage Certificates → + → Apple Development
-scripts/build.sh          # Release build, installs to /Applications/LocalFlow.app and launches it
+scripts/build.sh          # Release build, installs to /Applications/Dami.app and launches it
 ```
 
 Keep the same certificate and install path, so macOS keeps the permissions across rebuilds.
 
-Run the tests with `swift test --package-path LocalFlowCore`.
+Run the tests with `swift test --package-path DamiCore`.
 
 ## Permissions
 
 | Permission | Why |
 |---|---|
 | Microphone | To hear you while you hold the shortcut |
-| Input Monitoring | Asked for only if the shortcut doesn't start with Accessibility alone. It wasn't needed on the one Mac tested (macOS 15.3) |
+| Input Monitoring | Asked for only if the shortcut doesn't start with Accessibility alone. It wasn't needed on macOS 15.3, and wasn't reported on macOS 27.0.1 |
 | Accessibility | To notice the shortcut in any app, to paste with ⌘V, and to read the one character before the cursor when deciding on a space. With Learn from fixes on, also to read the text of the field it pasted into, about once a second for up to 2 minutes, to see if you fix it |
 
 ## Using it
@@ -41,19 +67,24 @@ Run the tests with `swift test --package-path LocalFlowCore`.
 - Press Esc to cancel. A recording stops on its own after 5 minutes and is transcribed.
 - **Light** mode (the default) removes fillers such as "um" and "음" and some repeated words, keeps a corrected number
   ("3, no, 4" becomes "4"), and applies your Dictionary. **Raw** pastes exactly what Whisper wrote.
+- Dami lives in the menu bar (a speech bubble). Its menu has your recent dictations, the language and cleanup choices, and
+  **Open Dami…** for Home, History, Dictionary and Settings.
+- Settings › General › Appearance: a theme (paper and ink), a key color, and light, dark or follow the Mac.
+- After setup, a quick tour walks you through a first dictation, the menu and the main window. Take it again from
+  Settings › General › Quick tour.
 - If nothing was recognized in a recording of a second or more, the HUD offers **Retry**, which tries the other language. A
   recording dropped as a phrase Whisper often makes up on silence, such as "Thanks for watching", offers **Paste anyway**.
 
 ## Learning from your fixes
 
-LocalFlow doesn't retrain Whisper. It learns around it, and only changes anything when you approve.
+Dami doesn't retrain Whisper. It learns around it, and only changes anything when you approve.
 
 - **Fix in History.** Open a dictation, choose Fix…, and save what you meant. History, search, Copy and paste again use the fix,
   with the pasted text kept below it. The pencil on a Recent item in the menu opens the same box.
 - **Fixes where you pasted.** In apps whose text Accessibility can read (Notes, browser text boxes, Terminal), a fix you make to the
   pasted text within 2 minutes is saved the same way. It stops watching when you switch app or field, dictate again, or a password
   field is in use. Some apps can't be read, such as cmux and Google Docs; use Fix in History there.
-- **Suggestions.** After a fix that changes one to three words, LocalFlow asks "Always fix X → Y?", with how many past dictations
+- **Suggestions.** After a fix that changes one to three words, Dami asks "Always fix X → Y?", with how many past dictations
   have it and which words it would touch. Approving adds a Replacement for future dictations. "Not this" isn't asked again. Fixes
   seen where you pasted need the same fix twice, on a word Whisper was unsure of, and wait in Dictionary › Suggestions. One-syllable
   Korean fixes aren't suggested, since a rule like "세 → 네" is too likely to hit something else.
@@ -66,7 +97,7 @@ LocalFlow doesn't retrain Whisper. It learns around it, and only changes anythin
 ## Privacy
 
 - Speech and text stay on your Mac. The network is only used to download the speech model.
-- Text history is stored unencrypted in `~/Library/Application Support/LocalFlow/` until you delete it. By default it's
+- Text history is stored unencrypted in `~/Library/Application Support/Dami/` until you delete it. By default it's
   kept forever. You can change that in Settings → Privacy, including turning history off.
 - Audio is only saved if you turn that on. It's kept for 7, 30 or 90 days.
 - Clipboard: pasting briefly uses the clipboard, then restores what was there. That temporary text is marked so clipboard
@@ -78,7 +109,7 @@ LocalFlow doesn't retrain Whisper. It learns around it, and only changes anythin
   dictation, and follow the history setting.
 - Deleting history overwrites the deleted text in the database file. **Delete all history** also removes the backup and rewrites
   the file.
-- Before the database format changes in an update, a backup copy is made next to it (`LocalFlow.backup.sqlite`). It's deleted 7
+- Before the database format changes in an update, a backup copy is made next to it (`Dami.backup.sqlite`). It's deleted 7
   days later.
 - A recording offered for Retry or Paste anyway stays in memory only, three at most, and is gone when the app quits.
 - For checking reliability and speed, the app keeps counts of dropped dictations by day and the stage times of the last 500
@@ -99,11 +130,12 @@ words like German "er" and Portuguese "um" are real words there.
 
 - Whisper transcribes one language at a time, so the same word can come out in either language. Mixed sentences are less
   accurate than single-language ones.
-- Bluetooth microphones are unreliable. With AirPods, dictations often produced nothing in testing, and first words can
-  be cut. The built-in or a wired microphone is recommended.
+- Bluetooth microphones such as AirPods are slow to start: the headset switches to its call mode, which takes 1–2 s, and its
+  sound drops to call quality while you dictate. "Starting microphone…" shows meanwhile, and the start sound plays once it hears
+  you. The built-in mic avoids both (menu › Microphone). Only AirPods were tried.
 - Rules are deliberately narrow, so some fillers stay ("like", "어"), and sentences aren't rewritten.
-- Text appears about 1.5 s after you let go, mostly whatever the length. In Auto, about 0.4 s of that is telling the two languages
-  apart; choosing one language in Settings skips it.
+- Text appears about 1.2 s after you let go for a short dictation, longer for long ones. In Auto, about 0.4 s of that is telling
+  the two languages apart; choosing one language in Settings skips it.
 - In fields Accessibility can't read, such as terminals, spacing between dictations is a best guess. It can miss a space
   after 2 minutes, and moving the cursor with the mouse alone can add an extra one.
 - A green check means the paste was sent. In some apps, when no text field is focused, the text may not appear. It's still in
@@ -112,6 +144,9 @@ words like German "er" and Portuguese "um" are real words there.
 - Learning from fixes where you pasted only works in apps Accessibility can read. A fix seen there is matched by position, so an
   edit that crosses the edge of the pasted text isn't saved.
 - Some screens show features that aren't built yet, marked as coming later.
+- So far it has been used by its author only, on two Macs. Nobody else has tried it yet.
+- Not checked with VoiceOver or Increase Contrast.
+- No automatic updates, since that would use the network. Download a new version and replace the app (see Install).
 
 ## License
 
