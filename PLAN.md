@@ -19,7 +19,7 @@ right away, in any version.
 | v0.3 | It learns from fixes | `docs/plans/v0.3.md` §6 | Done, merged to `main` 2026-11-05 |
 | v0.3.1 | Fixes from the v0.3 review: no meaning changes, no silent loss, deletion that deletes | `docs/plans/v0.3.1.md` §5 | Done, merged to `main` 2026-11-06 |
 | v0.4 | Where the time goes, and whether a local LLM can clean up safely | `docs/plans/v0.4.md` §6 | Done, merged to `main` 2026-11-06. The model failed the pass line, so Smart isn't built |
-| **v1.0** | **Anyone on a Mac can install and trust it** | `docs/plans/v1.0.md` §6 | Planned 2026-11-08, branch `v1.0` |
+| **v1.0** | **Anyone on a Mac can install and trust it** | `docs/plans/v1.0.md` §6 | Done, merged to `main` 2026-11-08 as 1.0.0. Testers (M6) and some accessibility checks waived |
 | After v1.0 | Improve, based on real needs | Each change on its own | Not scheduled, below |
 
 **Long-term goal:** accuracy improves for each person the more they use it, with everything staying on their Mac.
@@ -373,6 +373,9 @@ the Roadmap at the top.
 - **Status (2026-11-04): v0.2 finished and merged to `main`, on the owner's word.** The must-test list is done, with one item waived
   and unverified (dictating on the fallback mic). The owner replaced the week of use with a continuous check alongside v0.3, since a
   fixed period can't promise to catch rare problems (`CLAUDE.md`).
+- **Status (2026-11-08): v1.0 finished as 1.0.0 and merged to `main`** (owner). Signed `.dmg` (`scripts/release.sh`), installed on a
+  second Mac (macOS 27.0.1) and updated over it with permissions kept. Waived and unverified: testers (M6), VoiceOver and Increase
+  Contrast. See `docs/plans/v1.0.md` §6.
 
 ### Phase 3 — Cleanup (2–3 days)
 - Rules layer (fillers, repeats).

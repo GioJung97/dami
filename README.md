@@ -26,7 +26,7 @@ downloads once on first launch.
 
 ### From a .dmg
 
-There's no public download yet. If you were given a `Dami-<version>.dmg`:
+Download `Dami-<version>.dmg` from [Releases](https://github.com/GioJung97/dami/releases), then:
 
 1. Open it and drag **Dami** onto **Applications**.
 2. Open Dami from Applications. Dami isn't notarized by Apple, so macOS blocks it the first time with a message that it can't
