@@ -23,10 +23,13 @@ final class PasteWatcher {
     static let timeLimit: TimeInterval = 120
     /// Reads that may pass before the pasted text shows up in the field. Slow apps take the paste late.
     private static let locateAttempts = 3
+    /// Above this many UTF-16 units, reading and comparing the field once a second on the main thread starts to show: about 4 ms at
+    /// 1 M and 95 ms at 28 M, on made-up text (2026-11-08). Terminal hands over its whole scrollback.
+    static let maxFieldLength = 1_000_000
 
     private enum Outcome: String { case edited, unchanged, spanLost, unreadable, notWatched, discarded }
     enum EndedBy: String {
-        case appChanged, fieldChanged, nextDictation, timeLimit, spanLost, secureInput, unreadable, off, notPasted
+        case appChanged, fieldChanged, nextDictation, timeLimit, spanLost, secureInput, unreadable, off, notPasted, tooLarge
     }
 
     private struct Watch {
@@ -39,6 +42,9 @@ final class PasteWatcher {
         var sawText = false
         var reads = 0
         var firstEdit: Date?
+        /// Numbers only, for the log: the slowest read and the largest field seen.
+        var slowestRead: TimeInterval = 0
+        var largestField = 0
     }
 
     private let log = Logger(subsystem: "io.github.giojung97.dami", category: "capture")
@@ -92,6 +98,8 @@ final class PasteWatcher {
                 outcome = .edited
                 fixed = after
             }
+        } else if reason == .tooLarge {
+            outcome = .notWatched
         } else {
             outcome = watch.sawText ? .spanLost : .unreadable
         }
@@ -109,7 +117,7 @@ final class PasteWatcher {
             endedBy: reason.rawValue,
             secondsToEdit: outcome == .edited ? secondsToEdit : nil
         )
-        log.info("watch ended: \(outcome.rawValue, privacy: .public) by \(reason.rawValue, privacy: .public)")
+        log.notice("watch ended: \(outcome.rawValue, privacy: .public) by \(reason.rawValue, privacy: .public), \(watch.reads, privacy: .public) reads, slowest \(Int(watch.slowestRead * 1000), privacy: .public) ms, field \(Self.sizeRange(watch.largestField), privacy: .public)")
     }
 
     private func poll() {
@@ -121,7 +129,19 @@ final class PasteWatcher {
         guard !IsSecureEventInputEnabled() else { return finish(.secureInput) }
         guard let focused = FocusedField.element(), CFEqual(focused, watch.target.element) else { return finish(.fieldChanged) }
         guard FocusedField.current() != .secure else { return finish(.secureInput) }
+        if let count = FocusedField.characterCount(of: focused), count > Self.maxFieldLength {
+            watch.largestField = max(watch.largestField, count)
+            current = watch
+            return finish(.tooLarge)
+        }
+        let readStarted = Date()
         guard let value = FocusedField.value(of: focused) else { return finish(.unreadable) }
+        watch.slowestRead = max(watch.slowestRead, Date().timeIntervalSince(readStarted))
+        watch.largestField = max(watch.largestField, value.utf16.count)
+        guard value.utf16.count <= Self.maxFieldLength else {
+            current = watch
+            return finish(.tooLarge)
+        }
         watch.reads += 1
         if !value.isEmpty { watch.sawText = true }
 
@@ -142,5 +162,14 @@ final class PasteWatcher {
         }
         watch.lastValue = value
         current = watch
+    }
+
+    private static func sizeRange(_ length: Int) -> String {
+        switch length {
+        case ..<10_000: "under10k"
+        case ..<100_000: "10kTo100k"
+        case ...maxFieldLength: "100kTo1M"
+        default: "over1M"
+        }
     }
 }

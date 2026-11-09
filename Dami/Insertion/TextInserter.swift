@@ -273,6 +273,13 @@ enum FocusedField {
         return value as? String
     }
 
+    /// The field's length in UTF-16 units, without reading its text. Nil if the app doesn't say.
+    static func characterCount(of element: AXUIElement) -> Int? {
+        var count: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXNumberOfCharactersAttribute as CFString, &count) == .success else { return nil }
+        return (count as? NSNumber)?.intValue
+    }
+
     /// The caret, as a UTF-16 offset. Nil if unknown, or 0, which terminals such as cmux always report.
     static func caret(of element: AXUIElement) -> Int? {
         var rangeValue: CFTypeRef?

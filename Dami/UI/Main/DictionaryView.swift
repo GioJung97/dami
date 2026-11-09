@@ -20,6 +20,7 @@ struct SecondScriptTermHint: View {
 struct DictionaryView: View {
     @ObservedObject private var store = Store.shared
     @ObservedObject private var fit = VocabularyFit.shared
+    @EnvironmentObject private var navigation: Navigation
     @State private var tab = Tab.vocabulary
     @State private var newTerm = ""
     @State private var newFind = ""
@@ -54,6 +55,14 @@ struct DictionaryView: View {
         .padding(.top, 26)
         .padding(.bottom, 22)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear(perform: openRequestedTab)
+        .onChange(of: navigation.requestedDictionaryTab) { openRequestedTab() }
+    }
+
+    private func openRequestedTab() {
+        guard let name = navigation.requestedDictionaryTab else { return }
+        if let requested = Tab(rawValue: name) { tab = requested }
+        navigation.requestedDictionaryTab = nil
     }
 
     private var vocabulary: some View {

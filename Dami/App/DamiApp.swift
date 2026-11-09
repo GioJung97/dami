@@ -71,6 +71,8 @@ final class Navigation: ObservableObject {
     @Published var requestedSettingsTab: String?
     /// The Settings tab last shown, kept while the main window stays open. Back to General when it closes.
     @Published var settingsTab = "General"
+    /// Dictionary tab to show next, by name.
+    @Published var requestedDictionaryTab: String?
     /// A dictation to open in History with its fix box showing.
     @Published var requestedFix: Int64?
     /// Bumped to open the main window from code that can't reach SwiftUI's `openWindow`.

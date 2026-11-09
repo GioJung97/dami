@@ -157,10 +157,10 @@ struct SettingsView: View {
 
     @ViewBuilder private var sync: some View {
         Section {
-            LabeledContent("Sync across your Macs") {
+            LabeledContent("Account and sync") {
                 Text("Coming later").foregroundStyle(Theme.ink2)
             }
-            Text("Share your Dictionary, Replacements and Settings with Dami on your other Macs. History and audio stay on each Mac.")
+            Text("Sign in to keep your Dictionary, Replacements and Settings on all your Macs. History and audio stay on each Mac.")
                 .font(Theme.Font.footnote)
                 .foregroundStyle(Theme.ink2)
         }
@@ -290,14 +290,6 @@ private struct ModelsSection: View {
             LabeledContent("Dami memory in use", value: MemoryInfo.footprintText)
             LabeledContent("Typical speed", value: typicalSpeed)
             LabeledContent("This Mac", value: MemoryInfo.macDescription)
-        }
-        Section("Cleanup model") {
-            LabeledContent("Rewrites sentences") {
-                Text("Not installed").foregroundStyle(Theme.ink2)
-            }
-            Text("Comes with Smart mode in a later update. It will load only while you dictate. Light mode doesn't need it.")
-                .font(Theme.Font.footnote)
-                .foregroundStyle(Theme.ink2)
         }
     }
 

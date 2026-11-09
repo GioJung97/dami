@@ -43,7 +43,12 @@ final class Permissions: ObservableObject {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .notDetermined:
             AVCaptureDevice.requestAccess(for: .audio) { _ in
-                Task { @MainActor in self.refresh() }
+                Task { @MainActor in
+                    self.refresh()
+                    // After the prompt macOS hands focus back to the app that was in front before, leaving setup behind it
+                    // (2026-11-07). Only setup asks while undetermined, so bring it back.
+                    NSApp.activate(ignoringOtherApps: true)
+                }
             }
         default:
             openSettings("Privacy_Microphone")

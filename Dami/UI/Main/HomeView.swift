@@ -37,13 +37,25 @@ struct HomeView: View {
                 HStack(alignment: .top, spacing: 16) {
                     Card {
                         Text("Learned from your edits").font(Theme.Font.sectionTitle)
-                        Text("When you fix a word right after Dami pastes it, it will suggest adding it to your Dictionary here, so it's right next time.")
+                        Text("Fix a dictation in History, or right where it was pasted, and Dami suggests a Replacement so it's right next time. Nothing changes until you approve it.")
                             .font(Theme.Font.footnote)
                             .foregroundStyle(Theme.ink2)
                             .fixedSize(horizontal: false, vertical: true)
-                        Text("Coming in a later update.")
-                            .font(Theme.Font.footnote.weight(.medium))
-                            .foregroundStyle(Theme.ink2)
+                        if pendingSuggestions > 0 {
+                            Button {
+                                navigation.requestedDictionaryTab = DictionaryView.Tab.suggestions.rawValue
+                                navigation.section = .dictionary
+                            } label: {
+                                Text(pendingSuggestions == 1 ? "1 suggestion waiting" : "\(pendingSuggestions) suggestions waiting")
+                                    .underline()
+                                    .font(Theme.Font.footnote.weight(.medium))
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            Text("No suggestions waiting.")
+                                .font(Theme.Font.footnote.weight(.medium))
+                                .foregroundStyle(Theme.ink2)
+                        }
                     }
 
                     Card {
@@ -83,6 +95,8 @@ struct HomeView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
+
+    private var pendingSuggestions: Int { store.suggestions.filter { $0.status == .pending }.count }
 
     private var greeting: String {
         switch Calendar.current.component(.hour, from: Date()) {
