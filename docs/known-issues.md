@@ -184,5 +184,33 @@ or a new user account): does the HUD show during the first recording right after
 reopen: the HUD showed. So it didn't come back on a second fresh setup. A first install that also downloaded the model, on the
 second Mac (v1.0 M5, 2026-11-08), was reported as working as a whole. Still unknown: the cause, and other people's Macs.
 
+**Seen again (owner, 2026-11-12), and narrowed down.** With Dami running for 4 days, the HUD showed only on desktop 6 of 8. It
+works on every other desktop too, but there it stays on desktop 6, so it shows while you swipe past that desktop. At first this
+looked tied to Chrome, but only because Chrome was on desktop 6. A window log showed the HUD's x position at multiples of the
+screen width, sliding during the swipe. A private Space query (window and Space ids only) showed the HUD panel, and the tour's
+menu bar spotlight panel, each on Space 3 alone, which is desktop 6. Both have `canJoinAllSpaces`. Checked and ruled out: a Mission
+Control "Assign To" desktop binding (none), and the Dock icon mode switch (`.regular` ↔ `.accessory`), which left a test panel on
+all 8 Spaces. A fresh panel with Dami's exact settings joins all 8. In a test where the panel was forced onto one Space, neither
+orderOut/orderFront nor setting `collectionBehavior` again (even after clearing it) brought it back. Only a new panel did.
+**Still unknown:** what pins it. Since 11/08 the app has gone through many sleeps and wakes; Dock and WindowServer haven't
+restarted.
+
+**Worked around in v1.0.1 (2026-11-12):** the HUD drops its panel each time it hides and readies a new one, and the spotlight
+makes new panels on each show. Owner tested right after the build: the HUD shows and animates in on several desktops, desktop 6
+included, also in quick repeats and while swiping. **Not verified:** whether it stays right after days of running and many
+sleeps, which is when it broke. The cause is still unknown. If it comes back, the same Space query will show whether a new panel
+gets pinned too.
+
 **Unrelated, seen at the same time:** the menu bar item sometimes disappears when an app with many menus (cmux, Cursor) is in
 front. That's macOS hiding status items behind the notch. Dami's item sits just right of it.
+
+## A mixed dictation sometimes comes out all in one language (2026-11-09)
+
+**Reported by the owner:** a dictation that started in English and went on in Korean came out entirely in English, as if the Korean
+part had been translated, and was labelled EN rather than MIXED. Sometimes it goes the other way and comes out all in Korean. Not
+measured: how often, and which dictation it was (the latency samples hold languages, not text).
+
+**A guess, not checked:** in Auto, detection picks one language for the whole recording, and Whisper is then run in that language.
+Run in English on Korean speech, Whisper tends to translate rather than transcribe; run in Korean, English words can come out in
+Hangul. The language-adaptive prompt (`PLAN.md` §5) is meant to keep both, and may not be enough when the first seconds are clearly
+one language. To discuss with the owner before any change (2026-11-09).

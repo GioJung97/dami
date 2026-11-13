@@ -28,6 +28,9 @@ final class MenuBarSpotlight: ObservableObject {
         timer = nil
         panel?.orderOut(nil)
         dimmer?.orderOut(nil)
+        // New panels on the next show: a kept one can end up on one Space only (see HUDController.replacePanel).
+        panel = nil
+        dimmer = nil
         iconVisible = true
     }
 

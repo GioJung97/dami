@@ -132,7 +132,18 @@ final class HUDController: ObservableObject {
             try? await Task.sleep(for: .milliseconds(250))
             guard !Task.isCancelled, phase == .hidden, note == nil else { return }
             panel?.orderOut(nil)
+            replacePanel()
         }
+    }
+
+    /// A long-lived panel can end up on one Space only, despite `canJoinAllSpaces`, and nothing short of a new
+    /// window brings it back (seen after days of running, cause unknown; see docs/known-issues.md). So each time
+    /// the HUD goes away its panel is dropped, and a new one waits, already laid out empty so the next pill still
+    /// animates in. It has no window server window until it's shown (`defer: true`).
+    private func replacePanel() {
+        let panel = makePanel()
+        panel.contentView?.layoutSubtreeIfNeeded()
+        self.panel = panel
     }
 
     // MARK: Window
