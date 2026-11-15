@@ -214,3 +214,14 @@ measured: how often, and which dictation it was (the latency samples hold langua
 Run in English on Korean speech, Whisper tends to translate rather than transcribe; run in Korean, English words can come out in
 Hangul. The language-adaptive prompt (`PLAN.md` §5) is meant to keep both, and may not be enough when the first seconds are clearly
 one language. To discuss with the owner before any change (2026-11-09).
+
+**Measured on public data (2026-11-15, `bench/lid_results.md`):** 5,619 clips in 9 languages, none of the owner's. Wrong choices
+cost both ways: pure English forced to the second language comes out garbled or translated (22.5% error, 21.7% severe). Clear cases
+are fine; the failures sit where the two detection scores are close, and more often in short mixed speech (3–5 s). There the higher
+score is often the wrong one, so moving the threshold doesn't help.
+
+**Changed in v1.1 (2026-11-15):** when the margin is in −3..7, Dami transcribes in both languages and keeps the text Whisper is more
+confident of (mean log probability per text token). Tuned on ko, zh, es, de, checked unchanged on ja, fr, pt, hi, vi: severe failures
+3.4% → 1.6% and 4.1% → 3.4%, no language worse. Costs about 1 s, only when unsure. Not yet seen in real use: in the owner's first
+four dictations after install, none was unsure (`compared=0` in the latency log). Unverified: the English run in the app carries the
+Dictionary prompt, the benchmark's did not; all benchmark data is read speech with 1–4 speakers per language pair.

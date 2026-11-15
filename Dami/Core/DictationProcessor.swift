@@ -237,8 +237,9 @@ final class DictationProcessor {
         let wait = transcribed.started.timeIntervalSince(job.stoppedAt)
         let mode = job.options.forcedLanguage == nil ? "auto" : "fixed"
         let line = String(
-            format: "audio=%.2f lang=%@ mode=%@ firstAfterIdle=%d wait=%.3f detect=%.3f transcribe=%.3f runs=%d reused=%d cleanup=%.4f paste=%.3f total=%.3f",
+            format: "audio=%.2f lang=%@ mode=%@ firstAfterIdle=%d wait=%.3f detect=%.3f transcribe=%.3f runs=%d reused=%d compared=%d switched=%d cleanup=%.4f paste=%.3f total=%.3f",
             job.seconds, transcribed.result.language, mode, job.isFirstAfterIdle ? 1 : 0, wait, t.detect, t.transcribe, t.runs, t.reused,
+            t.compared ? 1 : 0, t.switched ? 1 : 0,
             cleanup, paste, total
         )
         latencyLog.notice("\(line, privacy: .public)")
