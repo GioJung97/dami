@@ -12,6 +12,7 @@ import os
 /// 2. English → prompt with the vocabulary list. Other language (incl. mixed) → short mixed sample only.
 /// 3. If the other language was detected but the result isn't in its script, Whisper translated:
 ///    re-run without a prompt. (Only possible for languages with their own script.)
+/// 4. When detection is unsure (v1.1), transcribe as both and keep the text Whisper is more sure of.
 actor Transcriber {
     static let modelName = "large-v3-v20240930_turbo_632MB"
     static let modelDisplayName = "Whisper large-v3 turbo"
@@ -60,6 +61,9 @@ actor Transcriber {
         var runs = 0
         /// Windows whose encoder output was reused instead of encoded again (v1.0 M2).
         var reused = 0
+        /// Detection was unsure, so both languages were transcribed (v1.1), and whether the other one was kept.
+        var compared = false
+        var switched = false
     }
 
     private var whisper: WhisperKit?
@@ -176,11 +180,14 @@ actor Transcriber {
         var timings = Timings()
         let detectStarted = Date()
         var language: String?
+        var unsure = false
         if let forced = options.forcedLanguage {
             language = forced
         } else if let second = options.secondLanguage {
             do {
-                language = try await detectLanguage(whisper, audio, among: ["en", second.code])
+                let detection = try await detectLanguage(whisper, audio, among: ["en", second.code])
+                language = detection.code
+                unsure = Self.unsureMargins.contains(detection.margin)
             } catch is CancellationError {
                 throw CancellationError()
             } catch {
@@ -192,22 +199,8 @@ actor Transcriber {
 
         timings.detect = Date().timeIntervalSince(detectStarted)
         let transcribeStarted = Date()
-        let second = language == "en" ? nil : options.secondLanguage
-        var prompt: String?
-        var vocabularyInPrompt: [String] = []
-        if language == nil {
-            prompt = nil
-        } else if let second {
-            prompt = options.keepEnglishTerms ? second.mixedPrompt : nil
-        } else {
-            let terms = fittingVocabulary(options.vocabulary)
-            prompt = terms.isEmpty ? nil : VocabularyPrompt.text(terms)
-            vocabularyInPrompt = terms
-        }
 
         if options.isDropRetry {
-            prompt = nil
-            vocabularyInPrompt = []
             let padding = [Float](repeating: 0, count: Self.paddingSamples)
             var retry = try await self.run(whisper, padding + audio + padding, prompt: nil, language: language, wordTimestamps: options.wordTimestamps)
             let offset = Float(Self.paddingSamples) / Float(AudioRecorder.sampleRate)
@@ -218,13 +211,26 @@ actor Transcriber {
             return Result(text: retry.text, language: language ?? retry.language ?? "en", prompt: nil, promptVocabulary: [], words: retry.words, timings: timings)
         }
 
-        var run = try await run(whisper, audio, prompt: prompt, language: language, wordTimestamps: options.wordTimestamps)
-        timings.runs = 1
-        if let script = second?.script, prompt != nil, !run.text.isEmpty, !script.matches(run.text) {
-            run = try await self.run(whisper, audio, prompt: nil, language: language, wordTimestamps: options.wordTimestamps)
-            prompt = nil
-            timings.runs += 1
+        var chosen = try await decode(whisper, audio, language: language, options: options)
+        timings.runs = chosen.runs
+        // Unsure: the other language too, and keep the more confident text. Measured on public code-switching data in 9
+        // languages, tuned on 4 and checked on the other 5 (bench/lid_select.py, 2026-11-15): severe failures 3.4% → 1.6% on the
+        // tuning languages and 4.1% → 3.4% on the others, none worse. Clear English or clear second language never get here.
+        // The other run gets no temperature fallback: when it would need one (about 1 in 20 there) it took about 4 s instead of
+        // 0.8 s and was never the better text, so it is dropped instead.
+        if unsure, let first = language, let second = options.secondLanguage {
+            let other = try await decode(whisper, audio, language: first == "en" ? second.code : "en", options: options, fallback: false)
+            timings.runs += other.runs
+            timings.compared = true
+            if other.run.passedChecks, other.run.confidence > chosen.run.confidence {
+                chosen = other
+                language = other.language
+                timings.switched = true
+            }
         }
+        var run = chosen.run
+        var prompt = chosen.prompt
+        let vocabularyInPrompt = chosen.vocabulary
         // A very short clip with the prompt can come back empty: Whisper ends at once. Retry once without it, with a little silence
         // around the speech, which brought all five empty clips back in testing (2026-11-05).
         if run.text.isEmpty, prompt != nil || audio.count < Self.shortClipSamples {
@@ -263,9 +269,40 @@ actor Transcriber {
     /// Under this, a retry also runs when there was no prompt, since short clips are the ones that come back empty.
     private static let shortClipSamples = 48_000
 
+    /// Detection between English and the second language, nearly even: here the higher score is often the wrong one, and the
+    /// two transcriptions are compared instead. Margin is English minus the second language, in log probability. Chosen on
+    /// public data (bench/lid_select.py, 2026-11-15); clear cases (about 4 of 5 clips there, more in everyday use) skip it.
+    static let unsureMargins: ClosedRange<Float> = -3...7
+
+    /// One way of transcribing: the language's prompt, and for the second language the check that Whisper didn't translate.
+    private func decode(_ whisper: WhisperKit, _ audio: [Float], language: String?, options: Options, fallback: Bool = true) async throws
+        -> (run: Decoded, language: String?, prompt: String?, vocabulary: [String], runs: Int) {
+        let second = language == "en" ? nil : options.secondLanguage
+        var prompt: String?
+        var vocabulary: [String] = []
+        if language == nil {
+            prompt = nil
+        } else if let second {
+            prompt = options.keepEnglishTerms ? second.mixedPrompt : nil
+        } else {
+            let terms = fittingVocabulary(options.vocabulary)
+            prompt = terms.isEmpty ? nil : VocabularyPrompt.text(terms)
+            vocabulary = terms
+        }
+        var run = try await self.run(whisper, audio, prompt: prompt, language: language, wordTimestamps: options.wordTimestamps, fallback: fallback)
+        var runs = 1
+        if let script = second?.script, prompt != nil, !run.text.isEmpty, !script.matches(run.text) {
+            run = try await self.run(whisper, audio, prompt: nil, language: language, wordTimestamps: options.wordTimestamps, fallback: fallback)
+            prompt = nil
+            runs += 1
+        }
+        return (run, language, prompt, vocabulary, runs)
+    }
+
     /// Whisper's own detection picks from all 99 languages, so Korean is sometimes heard as Japanese.
-    /// This runs the same single decoder step but only compares the user's languages.
-    private func detectLanguage(_ whisper: WhisperKit, _ audio: [Float], among codes: [String]) async throws -> String {
+    /// This runs the same single decoder step but only compares the user's languages. The margin is the first code's score
+    /// minus the best other one's.
+    private func detectLanguage(_ whisper: WhisperKit, _ audio: [Float], among codes: [String]) async throws -> (code: String, margin: Float) {
         guard let tokenizer = whisper.tokenizer else { throw TranscriberError.notLoaded }
         let window = whisper.featureExtractor.windowSamples ?? 480_000
         guard let samples = whisper.audioProcessor.padOrTrim(fromArray: audio, startAt: 0, toLength: window),
@@ -293,18 +330,33 @@ actor Transcriber {
             guard let token = tokenizer.convertTokenToId("<|\(code)|>") else { return nil }
             return (code, logits[[0, 0, NSNumber(value: token)]].floatValue)
         }
-        guard let best = scored.max(by: { $0.1 < $1.1 }) else { throw TranscriberError.detectionFailed }
-        return best.0
+        guard let best = scored.max(by: { $0.1 < $1.1 }), let first = scored.first else { throw TranscriberError.detectionFailed }
+        let margin = first.1 - (scored.dropFirst().map(\.1).max() ?? first.1)
+        return (best.0, margin)
+    }
+
+    /// A run's text and how sure Whisper was of it.
+    struct Decoded {
+        var text: String
+        var language: String?
+        var words: [Word]
+        /// Mean log probability of the text tokens (no special or timestamp tokens). Per token, so a script that needs more
+        /// tokens isn't penalised for length. -infinity when there's no text, so any text wins over none.
+        var confidence: Float
+        /// Whisper's own quality check passed with no retry at a higher temperature: not too repetitive, not too unsure.
+        var passedChecks: Bool
     }
 
     /// Mirrors the whisperkit-cli settings used in the Phase 0 benchmark.
-    private func run(_ whisper: WhisperKit, _ audio: [Float], prompt: String?, language: String?, wordTimestamps: Bool) async throws -> (text: String, language: String?, words: [Word]) {
+    /// `fallback: false` keeps the first try even when it fails Whisper's quality check, and says so in `passedChecks`.
+    private func run(_ whisper: WhisperKit, _ audio: [Float], prompt: String?, language: String?, wordTimestamps: Bool,
+                     fallback: Bool = true) async throws -> Decoded {
         var options = DecodingOptions(
             task: .transcribe,
             language: language,
             temperature: 0,
             temperatureIncrementOnFallback: 0.2,
-            temperatureFallbackCount: 5,
+            temperatureFallbackCount: fallback ? 5 : 0,
             topK: 5,
             usePrefillPrompt: language != nil,
             detectLanguage: language == nil,
@@ -323,7 +375,24 @@ actor Transcriber {
         let results = try await whisper.transcribe(audioArray: audio, decodeOptions: options)
         let text = results.map(\.text).joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
         let words = results.flatMap(\.allWords).map { Word(word: $0.word, start: $0.start, end: $0.end, probability: $0.probability) }
-        return (text, results.first?.language, words)
+        var sum: Float = 0
+        var count = 0
+        if let textEnd = whisper.tokenizer?.specialTokens.specialTokenBegin {
+            for segment in results.flatMap(\.segments) {
+                for (token, probabilities) in zip(segment.tokens, segment.tokenLogProbs) where token < textEnd {
+                    if let p = probabilities[token] { sum += p; count += 1 }
+                }
+            }
+        }
+        // The same test WhisperKit uses to decide on a fallback (DecodingFallback), with this function's thresholds. A segment
+        // judged silent doesn't count against it.
+        let passed = results.flatMap(\.segments).allSatisfy { segment in
+            segment.noSpeechProb > (options.noSpeechThreshold ?? 1)
+                || (segment.compressionRatio <= (options.compressionRatioThreshold ?? .infinity)
+                    && segment.avgLogprob >= (options.logProbThreshold ?? -.infinity))
+        }
+        return Decoded(text: text, language: results.first?.language, words: words,
+                       confidence: count > 0 ? sum / Float(count) : -.infinity, passedChecks: passed)
     }
 
     enum TranscriberError: LocalizedError {

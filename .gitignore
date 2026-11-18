@@ -2,6 +2,8 @@ rea/
 bench/clips/
 bench/results/
 bench/models/
+bench/data/
+bench/.venv/
 .DS_Store
 build/
 .build/

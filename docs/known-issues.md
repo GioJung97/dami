@@ -184,5 +184,70 @@ or a new user account): does the HUD show during the first recording right after
 reopen: the HUD showed. So it didn't come back on a second fresh setup. A first install that also downloaded the model, on the
 second Mac (v1.0 M5, 2026-11-08), was reported as working as a whole. Still unknown: the cause, and other people's Macs.
 
+**Seen again (owner, 2026-11-12), and narrowed down.** With Dami running for 4 days, the HUD showed only on desktop 6 of 8. It
+works on every other desktop too, but there it stays on desktop 6, so it shows while you swipe past that desktop. At first this
+looked tied to Chrome, but only because Chrome was on desktop 6. A window log showed the HUD's x position at multiples of the
+screen width, sliding during the swipe. A private Space query (window and Space ids only) showed the HUD panel, and the tour's
+menu bar spotlight panel, each on Space 3 alone, which is desktop 6. Both have `canJoinAllSpaces`. Checked and ruled out: a Mission
+Control "Assign To" desktop binding (none), and the Dock icon mode switch (`.regular` ↔ `.accessory`), which left a test panel on
+all 8 Spaces. A fresh panel with Dami's exact settings joins all 8. In a test where the panel was forced onto one Space, neither
+orderOut/orderFront nor setting `collectionBehavior` again (even after clearing it) brought it back. Only a new panel did.
+**Still unknown:** what pins it. Since 11/08 the app has gone through many sleeps and wakes; Dock and WindowServer haven't
+restarted.
+
+**Worked around in v1.0.1 (2026-11-12):** the HUD drops its panel each time it hides and readies a new one, and the spotlight
+makes new panels on each show. Owner tested right after the build: the HUD shows and animates in on several desktops, desktop 6
+included, also in quick repeats and while swiping. **Not verified:** whether it stays right after days of running and many
+sleeps, which is when it broke. The cause is still unknown. If it comes back, the same Space query will show whether a new panel
+gets pinned too.
+
 **Unrelated, seen at the same time:** the menu bar item sometimes disappears when an app with many menus (cmux, Cursor) is in
 front. That's macOS hiding status items behind the notch. Dami's item sits just right of it.
+
+## A mixed dictation sometimes comes out all in one language (2026-11-09)
+
+**Reported by the owner:** a dictation that started in English and went on in Korean came out entirely in English, as if the Korean
+part had been translated, and was labelled EN rather than MIXED. Sometimes it goes the other way and comes out all in Korean. Not
+measured: how often, and which dictation it was (the latency samples hold languages, not text).
+
+**A guess, not checked:** in Auto, detection picks one language for the whole recording, and Whisper is then run in that language.
+Run in English on Korean speech, Whisper tends to translate rather than transcribe; run in Korean, English words can come out in
+Hangul. The language-adaptive prompt (`PLAN.md` §5) is meant to keep both, and may not be enough when the first seconds are clearly
+one language. To discuss with the owner before any change (2026-11-09).
+
+**Measured on public data (2026-11-15, `bench/lid_results.md`):** 5,619 clips in 9 languages, none of the owner's. Wrong choices
+cost both ways: pure English forced to the second language comes out garbled or translated (22.5% error, 21.7% severe). Clear cases
+are fine; the failures sit where the two detection scores are close, and more often in short mixed speech (3–5 s). There the higher
+score is often the wrong one, so moving the threshold doesn't help.
+
+**Changed in v1.1 (2026-11-15):** when the margin is in −3..7, Dami transcribes in both languages and keeps the text Whisper is more
+confident of (mean log probability per text token). Tuned on ko, zh, es, de, checked unchanged on ja, fr, pt, hi, vi: severe failures
+3.4% → 1.6% and 4.1% → 3.4%, no language worse. Costs about 1 s, only when unsure. Not yet seen in real use: in the owner's first
+four dictations after install, none was unsure (`compared=0` in the latency log). Unverified: the English run in the app carries the
+Dictionary prompt, the benchmark's did not; all benchmark data is read speech with 1–4 speakers per language pair.
+
+**Slow case fixed (2026-11-15):** an 11.8 s dictation took 5.6 s when compared. The extra run had failed Whisper's quality check and
+retried at higher temperatures (about 4 s). In the benchmark that happened in 57 of 1,030 comparisons and the retried text was never
+the better one, so the extra run now gets no retry and is dropped if it fails the check (severe 1.6% → 1.4% on the tuning languages,
+held-out unchanged).
+
+## Long dictations that switch language come out in one language (2026-11-17)
+
+Detection hears only the first 30 s, and the whole dictation is then transcribed in that language. A 146 s owner dictation that
+began in English came out as English throughout: the first third had no Hangul, later Korean was partly kept and partly translated
+into English, with repeated words. Detection was clear (`compared=0`), so v1.1's comparison didn't run, and it couldn't help anyway
+since it also picks one language for the whole dictation. Same in 1.0. Cleanup changed nothing (raw and final text were the same).
+This pastes the wrong words, so it comes first in the next version: split a dictation where the language changes. The public
+benchmark has only short read clips (about 10 s) and doesn't show this; a fix needs long mixed dictations to test on.
+Also seen, not explained: the owner's two Korean dictations over 2 minutes came out at 0.5 and 1.0 syllables per second, against
+about 3.4 for every shorter length. Two samples, and long pauses could explain it; no audio was kept to check.
+
+## Korean sometimes comes out in 존댓말 when said in 반말 (2026-11-17)
+
+Reported by the owner: now and then a Korean dictation comes out polite (…요, …니다). Not language detection: detection only picks
+Korean or English, and the Korean text is the same either way. Not the prompt either, although it ends in 할게요: on 114 of the
+owner's saved Korean clips, the same prompt ending in 할게 gave identical text for 104, no clip was polite only with the 요 prompt,
+and with no prompt the polite share was about the same (29% of sentences). So it comes from Whisper itself. How often it is wrong
+is unknown: there is no ground truth (no dictation marked "This is what I said", audio saving off since 2026-11-07). To measure:
+save audio, and fix or mark each case seen. Wording, not meaning; not blocking.
+

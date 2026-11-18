@@ -42,6 +42,8 @@ speak English plus one other language (Korean is the tested one) or both mixed, 
 - **Design (JD2 "Notebook with keys") is built and merged into `v1.0`** (owner, 2026-11-08). Spec:
   `docs/design/spec.md`. All colours, fonts and sizes come from `Dami/UI/Theme/`; no literal values in views. Theme, key color and
   light/dark are user settings. App icon: `scripts/make-icon.swift`; README GIF: `scripts/make-readme-demo.swift` (made-up text).
+- **v1.1 is released as 1.1.0** (owner, 2026-11-17): unsure language detection transcribes both and keeps the more confident
+  text; HUD on every desktop. Next candidate: splitting a long dictation by language (`docs/known-issues.md`).
 - **v1.0 is released as 1.0.0** (owner, 2026-11-08): merged to `main`, tag `v1.0.0`, GitHub Release with the `.dmg`. Before it:
   v0.4 and v0.3.1 (2026-11-06), v0.3 (2026-11-05), v0.2 (2026-11-04). Merged version branches were deleted (owner, 2026-11-08);
   each version is a merge commit on `main`. The next version starts on a new branch from `main`. On a new machine: `git fetch`, then
