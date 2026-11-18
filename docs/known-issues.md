@@ -225,3 +225,29 @@ confident of (mean log probability per text token). Tuned on ko, zh, es, de, che
 3.4% → 1.6% and 4.1% → 3.4%, no language worse. Costs about 1 s, only when unsure. Not yet seen in real use: in the owner's first
 four dictations after install, none was unsure (`compared=0` in the latency log). Unverified: the English run in the app carries the
 Dictionary prompt, the benchmark's did not; all benchmark data is read speech with 1–4 speakers per language pair.
+
+**Slow case fixed (2026-11-15):** an 11.8 s dictation took 5.6 s when compared. The extra run had failed Whisper's quality check and
+retried at higher temperatures (about 4 s). In the benchmark that happened in 57 of 1,030 comparisons and the retried text was never
+the better one, so the extra run now gets no retry and is dropped if it fails the check (severe 1.6% → 1.4% on the tuning languages,
+held-out unchanged).
+
+## Long dictations that switch language come out in one language (2026-11-17)
+
+Detection hears only the first 30 s, and the whole dictation is then transcribed in that language. A 146 s owner dictation that
+began in English came out as English throughout: the first third had no Hangul, later Korean was partly kept and partly translated
+into English, with repeated words. Detection was clear (`compared=0`), so v1.1's comparison didn't run, and it couldn't help anyway
+since it also picks one language for the whole dictation. Same in 1.0. Cleanup changed nothing (raw and final text were the same).
+This pastes the wrong words, so it comes first in the next version: split a dictation where the language changes. The public
+benchmark has only short read clips (about 10 s) and doesn't show this; a fix needs long mixed dictations to test on.
+Also seen, not explained: the owner's two Korean dictations over 2 minutes came out at 0.5 and 1.0 syllables per second, against
+about 3.4 for every shorter length. Two samples, and long pauses could explain it; no audio was kept to check.
+
+## Korean sometimes comes out in 존댓말 when said in 반말 (2026-11-17)
+
+Reported by the owner: now and then a Korean dictation comes out polite (…요, …니다). Not language detection: detection only picks
+Korean or English, and the Korean text is the same either way. Not the prompt either, although it ends in 할게요: on 114 of the
+owner's saved Korean clips, the same prompt ending in 할게 gave identical text for 104, no clip was polite only with the 요 prompt,
+and with no prompt the polite share was about the same (29% of sentences). So it comes from Whisper itself. How often it is wrong
+is unknown: there is no ground truth (no dictation marked "This is what I said", audio saving off since 2026-11-07). To measure:
+save audio, and fix or mark each case seen. Wording, not meaning; not blocking.
+

@@ -376,6 +376,11 @@ the Roadmap at the top.
 - **Status (2026-11-08): v1.0 finished as 1.0.0 and merged to `main`** (owner). Signed `.dmg` (`scripts/release.sh`), installed on a
   second Mac (macOS 27.0.1) and updated over it with permissions kept. Waived and unverified: testers (M6), VoiceOver and Increase
   Contrast. See `docs/plans/v1.0.md` §6.
+- **Status (2026-11-15): v1.1 built on branch `v1.1`** (`docs/plans/v1.1.md`): the HUD shows on every desktop again, and when
+  language detection is unsure both languages are transcribed and the more confident text is kept. In daily use before release.
+- **Status (2026-11-17): v1.1 finished as 1.1.0 and merged to `main`** (owner). Two days of daily use: 11 of 37 dictations unsure
+  and compared, none slow after the no-retry fix. Waived: a long dictation that switches language still comes out in the first
+  30 s's language (not caused by v1.1; next candidate is splitting by language). See `docs/plans/v1.1.md` §4.
 
 ### Phase 3 — Cleanup (2–3 days)
 - Rules layer (fillers, repeats).
